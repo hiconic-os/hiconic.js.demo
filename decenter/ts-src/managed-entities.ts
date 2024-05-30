@@ -4,10 +4,13 @@ import { eval_, service, session, modelpath, remote, reason, reflection, util, m
 import * as mM from "../com.braintribe.gm.manipulation-model-2.0~/ensure-manipulation-model.js";
 import * as rM from "../com.braintribe.gm.root-model-2.0~/ensure-root-model.js";
 
+export type ManipulationListener = (manipulation: mM.AtomicManipulation) => void
+
 export interface ManagedEntities {
     create<E extends rM.GenericEntity>(type: reflection.EntityType<E>): E
     load(): Promise<void>
     commit(): Promise<void>
+    addManipulationListener(listener: ManipulationListener): void
     session: session.ManagedGmSession
 }
 
@@ -22,6 +25,8 @@ class ManagedEntitiesImpl implements ManagedEntities, manipulation.ManipulationL
     databasePromise: Promise<Database>
     lastTransactionId: string
     databaseName: string
+    loading: boolean = false
+    listeners = new Array<ManipulationListener>()
 
     constructor(databaseName: string) {
         this.session.listeners().add(this)
@@ -29,20 +34,40 @@ class ManagedEntitiesImpl implements ManagedEntities, manipulation.ManipulationL
     }
 
     create<E extends $T.com.braintribe.model.generic.GenericEntity>(type: reflection.EntityType<E>): E {
-        return this.session.acquire(type, util.newUuid());
+        const e = this.session.create(type);
+        e.globalId = util.newUuid()
+        e.id = e.globalId
+        return e
+    }
+
+    addManipulationListener(listener: ManipulationListener): void {
+        this.listeners.push(listener)
     }
 
     onMan(manipulation: mM.Manipulation): void {
+        if (this.loading)
+            return
+
         this.manipulations.push(manipulation);
+
+        for (const m of this.listeners) {
+            m(manipulation)
+        }
     }
 
     async load(): Promise<void> {
         let transactions = await (await this.getDatabase()).fetch()
-        this.orderByDependency(transactions)
-
-        for (const t of transactions) {
-            const m = await manipulation.ManipulationSerialization.deserializeManipulation(t.diff);
-            this.session.manipulate().mode(session.ManipulationMode.REMOTE).apply(m)
+        transactions = this.orderByDependency(transactions)
+        
+        this.loading = true
+        try {
+            for (const t of transactions) {
+                const m = await manipulation.ManipulationSerialization.deserializeManipulation(t.diff);
+                this.session.manipulate().mode(session.ManipulationMode.REMOTE).apply(m)
+            }
+        }
+        finally {
+            this.loading = false
         }
 
         if (transactions.length > 0)

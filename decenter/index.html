@@ -1,14 +1,72 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset='utf-8'>
-    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
-    <title>Page Title</title>
-    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>Person Index</title>
+    
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <link rel="stylesheet" href="./styles.css">
+    
+    <!-- Lora font-->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
+
     <script src='sources/tribefire.js.tf-js-3.0~/tribefire.js'></script>
-    <script src='sources/src/index.js' type="module" defer></script>
+    <script src="sources/src/main.js" type="module" defer></script>
 </head>
 <body>
-    
+    <header>
+        <div style="display: flex;">
+            <h1 style="flex:1;"><a href="https://github.com/hiconic-os/hiconic.platform.reflex" target="_blank">Person Index</a></h1>
+            <button id ="button-save" style="visibility:hidden;" class ="btn btn-light">Save</button>
+        </div>
+    </header>
+
+    <main>
+        <div class="container mt-5">
+        
+            <form id="form-add-person">
+                <div class="form-row">
+                    <div class="form-group col-md-4>
+                        <label for="name">Name:</label>
+                        <input type="text" class="form-control" id="input-name" value="John" required>
+                    </div>
+                    <div class="form-group col-md-4>
+                        <label for="last-name">Last Name:</label>
+                        <input type="text" class="form-control" id="input-last-name" value="Doenaught" required>
+                    </div>
+                    <div class="form-group col-md-4>
+                        <label for="birthday">Birthday:</label>
+                        <input type="date" class="form-control" id="input-birthday" required>
+                    </div>
+
+                    <div class="form-group col-md-4>
+                        <label for="email">Email:</label>
+                        <input type="text" class="form-control" id="input-email" value="john.doenaught@unnamed.com" required>
+                    </div>
+                    <button id ="button-add-person" class="btn btn-outline-secondary">Add</button>
+                </div>
+            </form>
+        </div>
+            <section class="section-result">
+                <table id="table-persons" class="table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Last Name</th>
+                            <th>Birthday</th>
+                            <th>Email</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-persons">
+                        <!-- Dynamic rows will be inserted here -->
+                    </tbody>
+                </table>
+            </section>
+    </main>
+
 </body>
 </html>

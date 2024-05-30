@@ -8,21 +8,40 @@ class ManagedEntitiesImpl {
     constructor(databaseName) {
         this.session = new session.BasicManagedGmSession();
         this.manipulations = new Array();
+        this.loading = false;
+        this.listeners = new Array();
         this.session.listeners().add(this);
         this.databaseName = databaseName;
     }
     create(type) {
-        return this.session.acquire(type, util.newUuid());
+        const e = this.session.create(type);
+        e.globalId = util.newUuid();
+        e.id = e.globalId;
+        return e;
+    }
+    addManipulationListener(listener) {
+        this.listeners.push(listener);
     }
     onMan(manipulation) {
+        if (this.loading)
+            return;
         this.manipulations.push(manipulation);
+        for (const m of this.listeners) {
+            m(manipulation);
+        }
     }
     async load() {
         let transactions = await (await this.getDatabase()).fetch();
-        this.orderByDependency(transactions);
-        for (const t of transactions) {
-            const m = await manipulation.ManipulationSerialization.deserializeManipulation(t.diff);
-            this.session.manipulate().mode(session.ManipulationMode.REMOTE).apply(m);
+        transactions = this.orderByDependency(transactions);
+        this.loading = true;
+        try {
+            for (const t of transactions) {
+                const m = await manipulation.ManipulationSerialization.deserializeManipulation(t.diff);
+                this.session.manipulate().mode(session.ManipulationMode.REMOTE).apply(m);
+            }
+        }
+        finally {
+            this.loading = false;
         }
         if (transactions.length > 0)
             this.lastTransactionId = transactions[transactions.length - 1].id;
