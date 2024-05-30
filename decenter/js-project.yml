@@ -1,0 +1,6 @@
+ !tribefire.extension.js.model.project.JsProjectDescriptor {
+  sourceFolders: [
+    { path: "src", updateResourceLinks: false },
+    { path: "ts-src", updateResourceLinks: false }
+  ]
+}

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>hiconic.js.demo</groupId>
+		<artifactId>parent</artifactId>
+		<version>[1.0,1.1)</version>
+	</parent>
+	<artifactId>decenter</artifactId>
+	<version>1.0.1</version>
+	<properties>
+	</properties>
+	<dependencies>
+		<dependency>
+			<groupId>tribefire.js</groupId>
+			<artifactId>tf-js-api</artifactId>
+			<version>${V.tribefire.js}</version>
+			<?tag js?>
+		</dependency>
+		<dependency>
+			<groupId>hiconic.js.demo</groupId>
+			<artifactId>decenter-model</artifactId>
+			<version>${V.hiconic.js.demo}</version>
+			<?tag js?>
+		</dependency>
+		<dependency>
+			<groupId>tribefire.js</groupId>
+			<artifactId>gwt-basic-managed-gm-session</artifactId>
+			<version>${V.tribefire.js}</version>
+			<?tag js?>
+		</dependency>
+	</dependencies>
+</project>

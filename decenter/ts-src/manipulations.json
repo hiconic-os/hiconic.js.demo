@@ -1,0 +1,33 @@
+{
+"version": "1.0",
+"author": "foobar",
+"date": "1.2.2020T0:23",
+"sequence": 12,
+"diff": [
+
+["+","1","hiconic.rx.demo.model.data.HasPerson"],
+["+","2","hiconic.rx.demo.model.data.Person"],
+["+","3","hiconic.rx.demo.model.data.Person"],
+
+["~","3",{
+    "name": "John",
+    "persons": ["=",["&2","&3"]]
+}],
+
+["~","3",{
+    "persons": [
+        "=",["&2","&3"],
+        "+",[0,"&4",1,"&4"],
+        "-",[],
+        "c",[]
+    ]
+}],
+
+["~","3",{
+    "persons": ["-",[0,"&4"]]
+}],
+
+["-","3"]
+
+]
+}
