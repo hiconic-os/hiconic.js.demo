@@ -6,30 +6,102 @@ import * as rM from "../com.braintribe.gm.root-model-2.0~/ensure-root-model.js";
 
 export type ManipulationListener = (manipulation: mM.AtomicManipulation) => void
 
-export interface ManagedEntities {
-    create<E extends rM.GenericEntity>(type: reflection.EntityType<E>): E
-    load(): Promise<void>
-    commit(): Promise<void>
-    addManipulationListener(listener: ManipulationListener): void
-    session: session.ManagedGmSession
-}
-
+/** 
+ * Opens a {@link ManagedEntities} instance backed by the indexedDB named "event-source-db".
+ * @param databaseName name of the ObjectStore used as space for the stored events
+ */
 export function openEntities(databaseName: string): ManagedEntities {
     return new ManagedEntitiesImpl(databaseName)
 }
 
-class ManagedEntitiesImpl implements ManagedEntities, manipulation.ManipulationListener {
+/**
+ * Manages entities given by instances {@link rM.GenericEntity GenericEntity} within an in-memory OODB and 
+ * stores changes in a event-sourcing persistence (e.g. indexedDB, Supabase, SQL blobs).
+ * 
+ * The initial state of all entities is built from the change history loaded from the event-source persistence. Once the state is established
+ * changes on entities are recorded as instances of {@link mM.Manipulation Manipulation}. 
+ * 
+ * Changes can be committed which is done by the appendage of a new transaction entry containing the recorded {@link mM.Manipulation manipulations}
+ * in a serialized form.
+ */
+export interface ManagedEntities {
+    /**
+     * Creates a {@link ManagedEntities.session|session}-associated {@link rM.GenericEntity entity}. 
+     * The instantiation will be recorded as {@link mM.InstantiationManipulation InstantiationManipulation}
+     * @param type the {@link reflection.EntityType entity type} of the entity to be created
+     */
+    create<E extends rM.GenericEntity>(type: reflection.EntityType<E>): E
+
+    /**
+     * Deletes an {@link rM.GenericEntity entity} from the {@link ManagedEntities.session|session}.
+     * The deletion will be recorded as {@link mM.DeleteManipulation DeleteManipulation}
+     * @param entity the {@link rM.GenericEntity entity} to be deleted
+     */
+    delete(entity: rM.GenericEntity): void
+
+    /**
+     * Establishes a state within the {@link ManagedEntities.session|session} by loading and appying changes from the event-source persistence.
+     */
+    load(): Promise<void>
+
+    /**
+     * Persists the recorded and collected {@link mM.Manipulation manipulations} by appending them as a transaction to the event-source persistence.
+     */
+    commit(): Promise<void>
+
+    /**
+     * Adds a {@link ManipulationListener} that will be notified about any new manipulation within the {@link ManagedEntities.session|session}
+     * @param listener Add
+     */
+    addManipulationListener(listener: ManipulationListener): void
+
+    /**
+     * Builds a select query from a GMQL select query statement which can then be equipped with variable values and executed.
+     * @param statement a GMQL select query statement which may contain variables
+     */
+    selectQuery(statement: string): Promise<session.SelectQueryResultConvenience>
+
+    /**
+     * Builds an entity query from a GMQL entity query statement which can then be equipped with variable values and executed.
+     * @param statement a GMQL entity query statement which may contain variables
+     */
+    entityQuery(statement: string): Promise<session.EntityQueryResultConvenience>
+
+    /**
+     * The in-memory OODB that keeps all the managed {@link rM.GenericEntity entities}, records changes on them as {@link mM.Manipulation manipulations} 
+     * and makes the entities and their properties accessible by queries.
+     */
+    session: session.ManagedGmSession
+}
+
+/**
+ * Implementation of {@link ManagedEntities} that uses {@link indexedDB} as event-source persistence.
+ */
+class ManagedEntitiesImpl implements ManagedEntities {
     readonly session = new session.BasicManagedGmSession()
     
+    /**
+     * An array of manipulations that will collect {@link mM.Manipulation manipulations} recorded by the {@link ManagedEntitiesImpl.session session}
+     * for later committing
+     */
     manipulations = new Array<mM.Manipulation>()
+
+    /**
+     * The actual transaction backend based on {@link indexedDB}
+     */
     databasePromise: Promise<Database>
+    
+    /** The id of the last transaction (e.g. from load or commit) for later linkage to a next transaction */
     lastTransactionId: string
+
+    /** The name of the ObjectStore used to fetch and append transaction */
     databaseName: string
     loading: boolean = false
     listeners = new Array<ManipulationListener>()
 
     constructor(databaseName: string) {
-        this.session.listeners().add(this)
+        // add a manipulation listener to the session that will collect recorded manipulations
+        this.session.listeners().add({onMan: m => this.onMan(m)})
         this.databaseName = databaseName
     }
 
@@ -44,7 +116,7 @@ class ManagedEntitiesImpl implements ManagedEntities, manipulation.ManipulationL
         this.listeners.push(listener)
     }
 
-    onMan(manipulation: mM.Manipulation): void {
+    private onMan(manipulation: mM.Manipulation): void {
         if (this.loading)
             return
 
@@ -55,7 +127,20 @@ class ManagedEntitiesImpl implements ManagedEntities, manipulation.ManipulationL
         }
     }
 
+    delete(entity: rM.GenericEntity): void {
+        this.session.deleteEntity(entity)
+    }
+
+    async selectQuery(statement: string): Promise<session.SelectQueryResultConvenience> {
+        return this.session.query().selectString(statement);
+    }
+    
+    async entityQuery(statement: string): Promise<session.EntityQueryResultConvenience> {
+        return this.session.query().entitiesString(statement);
+    }
+
     async load(): Promise<void> {
+        // get database and fetch all transaction records from it
         let transactions = await (await this.getDatabase()).fetch()
         transactions = this.orderByDependency(transactions)
         
@@ -70,26 +155,34 @@ class ManagedEntitiesImpl implements ManagedEntities, manipulation.ManipulationL
             this.loading = false
         }
 
+        // remember the id of the last transaction for linkage with an new transaction
         if (transactions.length > 0)
             this.lastTransactionId = transactions[transactions.length - 1].id
     }
 
     async commit(): Promise<void> {
         const manis = this.manipulations
+        // serialize the manipulations (currently as XML)
         const diff = await manipulation.ManipulationSerialization.serializeManipulations(manis, true)
+
+        // build a transaction record equipped with a new UUID, date and the serialized manipulations
         const transaction = {} as Transaction
         transaction.id = util.newUuid()
         transaction.diff = diff
         transaction.date = new Date().getTime()
         transaction.deps = []
         
+        // link the transaction to a previous one if present
         if (this.lastTransactionId !== undefined)
             transaction.deps.push(this.lastTransactionId)
 
+        // append the transaction record to the database
         await (await this.getDatabase()).append(transaction)
 
+        // clear the manipulations as they are peristed
         this.manipulations = []
         
+        // store the id of the appended transaction as latest transaction id
         this.lastTransactionId = transaction.id
     }
 
@@ -134,6 +227,9 @@ class ManagedEntitiesImpl implements ManagedEntities, manipulation.ManipulationL
 
 }
 
+/**
+ * Describes a transaction that is modelled in a way that it can be stored as JSON-like structure in the {@link indexedDB}
+ */
 interface Transaction {
     deps: string[]
     id: string
@@ -141,6 +237,11 @@ interface Transaction {
     date: number
 }
 
+/**
+ * An append-only persistence for {@link Transaction transactions} based on {@link indexedDB}.
+ * 
+ * It allows to {@link Database.fetch|fetch} and {@link Database.append|append} {@link Transaction transactions}
+ */
 class Database {
 
     private db: IDBDatabase;
