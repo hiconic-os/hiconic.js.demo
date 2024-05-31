@@ -56,6 +56,11 @@ export interface ManagedEntities {
     addManipulationListener(listener: ManipulationListener): void
 
     /**
+     * An array of all recoded manipulations of the current transaction (not yet committed).
+     */
+    manipulations: Array<mM.Manipulation>
+
+    /**
      * Builds a select query from a GMQL select query statement which can then be equipped with variable values and executed.
      * @param statement a GMQL select query statement which may contain variables
      */

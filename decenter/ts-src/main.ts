@@ -8,8 +8,9 @@ const personTable = document.getElementById("tbody-persons") as HTMLTableElement
 const buttonAddPerson = document.getElementById("button-add-person") as HTMLButtonElement;
 const buttonSave = document.getElementById("button-save") as HTMLButtonElement;
 const addPersonForm = document.getElementById("form-add-person") as HTMLFormElement;
+const divAlert = document.getElementById("div-alert") as HTMLDivElement;
 
-/* ------------- EVENT LISTENERS ------------- */
+/* ------------- STATIC EVENT LISTENERS ------------- */
 buttonAddPerson.addEventListener("click", addPerson);
 buttonSave.addEventListener("click", save);
 
@@ -17,22 +18,12 @@ const managedEntities = openEntities("person-index")
 managedEntities.addManipulationListener(m => buttonSave.style.visibility = "visible")
 
 /* ------------- FUNCTIONS ------------- */
-async function save() : Promise<void> {
-    await managedEntities.commit()
-
-    buttonSave.style.visibility = "hidden"
-}
-
 async function main(): Promise<void> {
     await managedEntities.load()
     renderTable()
 }
 
 main()
-
-function reset(): void {
-    personTable.innerHTML='';
-}
 
 function addPerson(): void {
     const name = getValueFromInputElement("input-name", true);
@@ -59,7 +50,7 @@ function getValueFromInputElement(id:string, mandatory:boolean) : string {
         return value;
     
     if (mandatory)
-        console.log("Input '" + element.name + "' is mandatory!")
+        showAlert("Input for " + element.name + " is mandatory.")
 
     return "";
 }
@@ -82,6 +73,15 @@ async function renderTable() : Promise<void> {
         appendTableCell(tr, p, CellValueType.date, "birthday")
         appendTableCell(tr, p, CellValueType.string, "email")
 
+        const cell = document.createElement('td');
+        tr.appendChild(cell);
+
+        const delButtonId = 'button-delete-' + p.globalId
+        cell.innerHTML = `<button id ="${delButtonId}" class ="btn btn-light">\u2715</button>`
+
+        const deleteButton = document.getElementById(delButtonId) as HTMLButtonElement
+        deleteButton.onclick = () => deletePerson(p)
+
     }
 }
 
@@ -99,19 +99,10 @@ function appendTableCell(tr: HTMLTableRowElement, person: m.Person, cellValueTyp
     var buttonId = 'button-edit-' + idPostfix
     var valueTdId = 'td-value-' + idPostfix
     
-    /*
-    cell.innerHTML = 
-    `<table width='100%'>
-    <tr>
-    <td id='${valueTdId}'></td>
-    <td><button id='${buttonId}' class='btn btn-outline-secondary'>Edit</button></td>
-    </tr>
-    </table>`;
-     */
     cell.innerHTML = 
     `<div class='div-value-action'>
-    <div class='div-value' id='${valueTdId}'></div>
     <div class='div-action'><button id='${buttonId}' class='btn btn-outline-secondary button-edit'>\u270e</button></div>
+    <div class='div-value' id='${valueTdId}'></div>
     </div>`;
 
     tr.appendChild(cell);
@@ -201,5 +192,27 @@ function createValueInputField(idPostfix: string, cellValueType: CellValueType, 
             break;
     }
     return inputField;
+}
+
+async function save() : Promise<void> {
+    const manCount = managedEntities.manipulations.length
+    await managedEntities.commit()
+
+    buttonSave.style.visibility = "hidden"
+    
+    showAlert('Successfully saved transaction with ' + manCount + ' change(s).')
+}
+
+function deletePerson(person: m.Person) : void {
+    managedEntities.session.deleteEntity(person);
+    renderTable()
+}
+
+function showAlert(textContent: string) : void {
+    divAlert.classList.add("show");
+    divAlert.textContent = textContent
+    setTimeout(function() {
+        divAlert.classList.remove("show");
+        }, 3000);
 }
 

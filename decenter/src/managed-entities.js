@@ -1,16 +1,28 @@
 /// <reference path="../tribefire.js.gwt-basic-managed-gm-session-3.0~/gwt-basic-managed-gm-session.d.ts" />
 /// <reference path="../tribefire.js.tribefire-js-module-3.0~/tribefire-js-module.d.ts" />
 import { session, util, manipulation } from "../tribefire.js.tf-js-api-3.0~/tf-js-api.js";
+/**
+ * Opens a {@link ManagedEntities} instance backed by the indexedDB named "event-source-db".
+ * @param databaseName name of the ObjectStore used as space for the stored events
+ */
 export function openEntities(databaseName) {
     return new ManagedEntitiesImpl(databaseName);
 }
+/**
+ * Implementation of {@link ManagedEntities} that uses {@link indexedDB} as event-source persistence.
+ */
 class ManagedEntitiesImpl {
     constructor(databaseName) {
         this.session = new session.BasicManagedGmSession();
+        /**
+         * An array of manipulations that will collect {@link mM.Manipulation manipulations} recorded by the {@link ManagedEntitiesImpl.session session}
+         * for later committing
+         */
         this.manipulations = new Array();
         this.loading = false;
         this.listeners = new Array();
-        this.session.listeners().add(this);
+        // add a manipulation listener to the session that will collect recorded manipulations
+        this.session.listeners().add({ onMan: m => this.onMan(m) });
         this.databaseName = databaseName;
     }
     create(type) {
@@ -30,7 +42,17 @@ class ManagedEntitiesImpl {
             m(manipulation);
         }
     }
+    delete(entity) {
+        this.session.deleteEntity(entity);
+    }
+    async selectQuery(statement) {
+        return this.session.query().selectString(statement);
+    }
+    async entityQuery(statement) {
+        return this.session.query().entitiesString(statement);
+    }
     async load() {
+        // get database and fetch all transaction records from it
         let transactions = await (await this.getDatabase()).fetch();
         transactions = this.orderByDependency(transactions);
         this.loading = true;
@@ -43,21 +65,28 @@ class ManagedEntitiesImpl {
         finally {
             this.loading = false;
         }
+        // remember the id of the last transaction for linkage with an new transaction
         if (transactions.length > 0)
             this.lastTransactionId = transactions[transactions.length - 1].id;
     }
     async commit() {
         const manis = this.manipulations;
+        // serialize the manipulations (currently as XML)
         const diff = await manipulation.ManipulationSerialization.serializeManipulations(manis, true);
+        // build a transaction record equipped with a new UUID, date and the serialized manipulations
         const transaction = {};
         transaction.id = util.newUuid();
         transaction.diff = diff;
         transaction.date = new Date().getTime();
         transaction.deps = [];
+        // link the transaction to a previous one if present
         if (this.lastTransactionId !== undefined)
             transaction.deps.push(this.lastTransactionId);
+        // append the transaction record to the database
         await (await this.getDatabase()).append(transaction);
+        // clear the manipulations as they are peristed
         this.manipulations = [];
+        // store the id of the appended transaction as latest transaction id
         this.lastTransactionId = transaction.id;
     }
     async getDatabase() {
@@ -88,6 +117,11 @@ class ManagedEntitiesImpl {
         collect.push(transaction);
     }
 }
+/**
+ * An append-only persistence for {@link Transaction transactions} based on {@link indexedDB}.
+ *
+ * It allows to {@link Database.fetch|fetch} and {@link Database.append|append} {@link Transaction transactions}
+ */
 class Database {
     static async open(databaseName) {
         return new Promise((resolve, reject) => {
