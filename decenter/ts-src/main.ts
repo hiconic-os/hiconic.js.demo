@@ -15,7 +15,7 @@ buttonAddPerson.addEventListener("click", addPerson);
 buttonSave.addEventListener("click", save);
 
 const managedEntities = openEntities("person-index")
-managedEntities.addManipulationListener(m => buttonSave.style.visibility = "visible")
+managedEntities.manipulationBuffer.addBufferUpdateListener((b) => buttonSave.style.visibility = b.headCount() > 0? "visible": "hidden");
 
 /* ------------- FUNCTIONS ------------- */
 async function main(): Promise<void> {
@@ -195,11 +195,9 @@ function createValueInputField(idPostfix: string, cellValueType: CellValueType, 
 }
 
 async function save() : Promise<void> {
-    const manCount = managedEntities.manipulations.length
-    await managedEntities.commit()
+    const manCount = managedEntities.manipulationBuffer.headCount();
+    await managedEntities.commit();
 
-    buttonSave.style.visibility = "hidden"
-    
     showAlert('Successfully saved transaction with ' + manCount + ' change(s).')
 }
 

@@ -1,6 +1,7 @@
 /// <reference path="../tribefire.js.gwt-basic-managed-gm-session-3.0~/gwt-basic-managed-gm-session.d.ts" />
 /// <reference path="../tribefire.js.tribefire-js-module-3.0~/tribefire-js-module.d.ts" />
 import { session, util, manipulation } from "../tribefire.js.tf-js-api-3.0~/tf-js-api.js";
+import { SessionManipulationBuffer } from "./manipulation-buffer.js";
 /**
  * Opens a {@link ManagedEntities} instance backed by the indexedDB named "event-source-db".
  * @param databaseName name of the ObjectStore used as space for the stored events
@@ -14,33 +15,14 @@ export function openEntities(databaseName) {
 class ManagedEntitiesImpl {
     constructor(databaseName) {
         this.session = new session.BasicManagedGmSession();
-        /**
-         * An array of manipulations that will collect {@link mM.Manipulation manipulations} recorded by the {@link ManagedEntitiesImpl.session session}
-         * for later committing
-         */
-        this.manipulations = new Array();
-        this.loading = false;
-        this.listeners = new Array();
-        // add a manipulation listener to the session that will collect recorded manipulations
-        this.session.listeners().add({ onMan: m => this.onMan(m) });
         this.databaseName = databaseName;
+        this.manipulationBuffer = new SessionManipulationBuffer(this.session);
     }
     create(type) {
         const e = this.session.create(type);
         e.globalId = util.newUuid();
         e.id = e.globalId;
         return e;
-    }
-    addManipulationListener(listener) {
-        this.listeners.push(listener);
-    }
-    onMan(manipulation) {
-        if (this.loading)
-            return;
-        this.manipulations.push(manipulation);
-        for (const m of this.listeners) {
-            m(manipulation);
-        }
     }
     delete(entity) {
         this.session.deleteEntity(entity);
@@ -55,7 +37,8 @@ class ManagedEntitiesImpl {
         // get database and fetch all transaction records from it
         let transactions = await (await this.getDatabase()).fetch();
         transactions = this.orderByDependency(transactions);
-        this.loading = true;
+        this.manipulationBuffer.clear();
+        this.manipulationBuffer.suspendTracking();
         try {
             for (const t of transactions) {
                 const m = await manipulation.ManipulationSerialization.deserializeManipulation(t.diff);
@@ -63,14 +46,14 @@ class ManagedEntitiesImpl {
             }
         }
         finally {
-            this.loading = false;
+            this.manipulationBuffer.resumeTracking();
         }
         // remember the id of the last transaction for linkage with an new transaction
         if (transactions.length > 0)
             this.lastTransactionId = transactions[transactions.length - 1].id;
     }
     async commit() {
-        const manis = this.manipulations;
+        const manis = this.manipulationBuffer.getCommitManipulations();
         // serialize the manipulations (currently as XML)
         const diff = await manipulation.ManipulationSerialization.serializeManipulations(manis, true);
         // build a transaction record equipped with a new UUID, date and the serialized manipulations
@@ -84,8 +67,8 @@ class ManagedEntitiesImpl {
             transaction.deps.push(this.lastTransactionId);
         // append the transaction record to the database
         await (await this.getDatabase()).append(transaction);
-        // clear the manipulations as they are peristed
-        this.manipulations = [];
+        // clear the manipulations as they are persisted
+        this.manipulationBuffer.clear();
         // store the id of the appended transaction as latest transaction id
         this.lastTransactionId = transaction.id;
     }

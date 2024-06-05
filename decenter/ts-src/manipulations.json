@@ -31,3 +31,29 @@
 
 ]
 }
+
+[
+
+    5, // integer
+    true, // boolean
+    "hallo", // string
+    ["f",5.0], // float
+    ["d",5.0], // double
+    ["D","5.0"], // decimal
+    ["l","5.0"], // long
+    ["t",2021,10,27,0,0,0,0], // date
+    
+    ["L","value", "value"], // list
+    ["S","value", "value"], // set
+    ["M","key", "value", "key", "value"], // map
+    
+    ["5"], // entity
+    ["E","typesig","constant"], // enum 
+    
+    
+    ["~","5",{"name":"Peter","lastName":"Gazdik"}],
+    ["~","5",{"friends":["L",["5"]]}],
+    ["~","5",{"friend":["5"]}],
+    ["~","5",{"markers":["E","typesig","constant"]}]
+    
+    ]

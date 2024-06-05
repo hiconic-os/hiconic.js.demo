@@ -1,8 +1,9 @@
-import { eval_, service, session, modelpath, remote, reason, reflection, util } from "../tribefire.js.tf-js-api-3.0~/tf-js-api.js";
+import { eval_, service, session, modelpath, remote, reason, reflection, util, lang } from "../tribefire.js.tf-js-api-3.0~/tf-js-api.js";
 import * as mM from "../com.braintribe.gm.manipulation-model-2.0~/ensure-manipulation-model.js";
 import * as oM from "../com.braintribe.gm.owner-model-2.0~/ensure-owner-model.js";
-import Manipulation = $T.com.braintribe.model.generic.manipulation.Manipulation;
-import AtomicManipulation = $T.com.braintribe.model.generic.manipulation.AtomicManipulation;
+import * as rM from "../com.braintribe.gm.root-model-2.0~/ensure-root-model.js";
+
+import TypeCode = reflection.TypeCode
 
 interface TransactionCommons {
     author: string
@@ -17,7 +18,7 @@ interface JsonTransaction extends TransactionCommons {
 
 interface Transaction extends TransactionCommons {
     date: Date
-    diff: AtomicManipulation[]
+    diff: mM.AtomicManipulation[]
 }
 
 class ManipulationMarshaller {
@@ -77,15 +78,15 @@ class ManipulationMarshaller {
         return transaction
     }
 
-    async diffFromJsonDiff(jsonDiff: any[][]): Promise<AtomicManipulation[]> {
+    async diffFromJsonDiff(jsonDiff: any[][]): Promise<mM.AtomicManipulation[]> {
         return null;
     }
 
-    async jsonDiffFromDiff(diff: AtomicManipulation[]): Promise<any[][]> {
+    async jsonDiffFromDiff(diff: mM.AtomicManipulation[]): Promise<any[][]> {
         return null;
     }
 
-    manipulationAsJson(m: AtomicManipulation): any[] {
+    manipulationAsJson(m: mM.AtomicManipulation): any[] {
         switch (m.EntityType().getShortName()) {
             case "AcquireManipulation":
                 const am = m as mM.AcquireManipulation
@@ -113,12 +114,112 @@ class ManipulationMarshaller {
     }
 
     valueAsJson(type: reflection.GenericModelType, value: any): any {
+        if (value == null)
+            return null;
+
         switch (type.getTypeCode()) {
-            case reflection.TypeCode.booleanType:
-            case reflection.TypeCode.stringType:
-            case reflection.TypeCode.dateType:
-            case reflection.TypeCode.dateType:
+            case TypeCode.objectType: return this.valueAsJson(type.getActualType(value), value);
+
+            case TypeCode.booleanType: return value;
+            case TypeCode.stringType: return value;
+            case TypeCode.integerType: return value;
+
+            case TypeCode.longType: return toLongTuple(value as lang.Long);
+            case TypeCode.floatType: return toFloatTuple(value as lang.Float);
+            case TypeCode.decimalType: return toDecimalTuple(value as lang.BigDecimal);
+            case TypeCode.doubleType: return toDoubleTuple(value as number);
+
+            case TypeCode.dateType: return toDateTuple(value as Date);
+
+            case TypeCode.listType: return this.listAsJson(type as reflection.ListType, value as lang.List<any>);
+            case TypeCode.setType: return this.setAsJson(type as reflection.SetType, value as lang.Set<any>);
+            case TypeCode.mapType: return this.mapAsJson(type as reflection.MapType, value as lang.Map<any, any>);
+
+            case TypeCode.entityType: return [(value as rM.GenericEntity).id]
+            case TypeCode.enumType: return toEnumTuple(type as reflection.EnumType, value as lang.Enum<any>);
+            
+            break;
         }
         return null
     }
+
+    listAsJson(type: reflection.ListType, list: lang.List<any>): CollectionTuple {
+        return this.collectionAsJson("L", type, list);
+    }
+
+    setAsJson(type: reflection.SetType, set: lang.Set<any>): CollectionTuple {
+        return this.collectionAsJson("S", type, set);
+    }
+
+    mapAsJson(type: reflection.MapType, map: lang.Map<any, any>): CollectionTuple {
+        const keyType = type.getKeyType();
+        const valueType = type.getValueType();
+        const tuple: CollectionTuple = ["M"];
+
+
+        for (const it = map.entrySet().iterator(); it.hasNext();) {
+            const entry = it.next();
+            
+            const keyJson = this.valueAsJson(keyType, entry.getKey());
+            const valueJson = this.valueAsJson(keyType, entry.getKey());
+
+            tuple.push(keyJson);
+            tuple.push(valueJson);
+        }
+    
+        return tuple;
+    }
+
+    collectionAsJson(code: string, type: reflection.LinearCollectionType, list: lang.Collection<any>): CollectionTuple {
+        const elementType = type.getCollectionElementType();
+        const tuple: CollectionTuple = [code];
+
+        for (const it = list.iterator(); it.hasNext();) {
+            const json = this.valueAsJson(elementType, it.next());
+            tuple.push(json);
+        }
+    
+        return tuple;
+    }
+}
+
+type EnumTuple = [type: string, type: string, constant: string];
+type DoubleTuple = [type: string, type: number];
+type FloatTuple = [type: string, type: number];
+type LongTuple = [type: string, type: string];
+type DecimalTuple = [type: string, type: string];
+type DateTuple = [type: string, year: number, month: number, day: number, hours: number, minutes: number, seconds: number, milliseconds: number];
+
+type CollectionTuple = [type: string, ...elements: any];
+
+function toFloatTuple(floatValue: lang.Float): FloatTuple {
+    return ["f", floatValue.floatValue()];
+}
+
+function toDoubleTuple(doubleValue: number): DoubleTuple {
+    return ["d", doubleValue];
+}
+
+function toDecimalTuple(decimal: lang.BigDecimal): DecimalTuple {
+    return ["D", decimal.toString()];
+}
+
+function toLongTuple(longValue: lang.Long): LongTuple {
+    return ["l", longValue.toString()];
+}
+
+function toDateTuple(date: Date): DateTuple {
+    return [
+        "t",
+        date.getUTCFullYear(), 
+        date.getUTCMonth(), 
+        date.getUTCDay(), 
+        date.getUTCHours(), 
+        date.getUTCMinutes(), 
+        date.getUTCSeconds(), 
+        date.getUTCMilliseconds()];
+}
+
+function toEnumTuple(type: reflection.EnumType, enumValue: lang.Enum<any>): EnumTuple {
+    return ["E", type.getTypeSignature(), enumValue.name()];
 }

@@ -11,7 +11,7 @@ const divAlert = document.getElementById("div-alert");
 buttonAddPerson.addEventListener("click", addPerson);
 buttonSave.addEventListener("click", save);
 const managedEntities = openEntities("person-index");
-managedEntities.addManipulationListener(m => buttonSave.style.visibility = "visible");
+managedEntities.manipulationBuffer.addBufferUpdateListener((b) => buttonSave.style.visibility = b.headCount() > 0 ? "visible" : "hidden");
 /* ------------- FUNCTIONS ------------- */
 async function main() {
     await managedEntities.load();
@@ -149,9 +149,8 @@ function createValueInputField(idPostfix, cellValueType, value) {
     return inputField;
 }
 async function save() {
-    const manCount = managedEntities.manipulations.length;
+    const manCount = managedEntities.manipulationBuffer.headCount();
     await managedEntities.commit();
-    buttonSave.style.visibility = "hidden";
     showAlert('Successfully saved transaction with ' + manCount + ' change(s).');
 }
 function deletePerson(person) {

@@ -13,6 +13,7 @@ public interface Person extends GenericEntity {
 	String lastName = "lastName";
 	String birthday = "birthday";
 	String email = "email";
+	String walletAddress = "walletAddress";
 	
 	String getName();
 	void setName(String name);
@@ -25,4 +26,7 @@ public interface Person extends GenericEntity {
 	
 	String getEmail();
 	void setEmail(String email);
+
+	String getWalletAddress();
+	void setWalletAddress(String walletAddress);
 }

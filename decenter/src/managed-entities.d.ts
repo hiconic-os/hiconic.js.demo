@@ -1,9 +1,9 @@
 /// <reference path="../sources/tribefire.js.gwt-basic-managed-gm-session-3.0~/gwt-basic-managed-gm-session.d.ts" />
 /// <reference path="../sources/tribefire.js.tribefire-js-module-3.0~/tribefire-js-module.d.ts" />
 import { session, reflection } from "../tribefire.js.tf-js-api-3.0~/tf-js-api.js";
-import * as mM from "../com.braintribe.gm.manipulation-model-2.0~/ensure-manipulation-model.js";
 import * as rM from "../com.braintribe.gm.root-model-2.0~/ensure-root-model.js";
-export type ManipulationListener = (manipulation: mM.AtomicManipulation) => void;
+import { ManipulationBuffer, ManipulationBufferUpdateListener } from "./manipulation-buffer.js";
+export { ManipulationBuffer, ManipulationBufferUpdateListener };
 /**
  * Opens a {@link ManagedEntities} instance backed by the indexedDB named "event-source-db".
  * @param databaseName name of the ObjectStore used as space for the stored events
@@ -20,6 +20,11 @@ export declare function openEntities(databaseName: string): ManagedEntities;
  * in a serialized form.
  */
 export interface ManagedEntities {
+    /**
+     * An buffer of manipulations that will collect {@link mM.Manipulation manipulations} recorded by the {@link ManagedEntitiesImpl.session session}
+     * for later committing
+     */
+    manipulationBuffer: ManipulationBuffer;
     /**
      * Creates a {@link ManagedEntities.session|session}-associated {@link rM.GenericEntity entity}.
      * The instantiation will be recorded as {@link mM.InstantiationManipulation InstantiationManipulation}
@@ -40,15 +45,6 @@ export interface ManagedEntities {
      * Persists the recorded and collected {@link mM.Manipulation manipulations} by appending them as a transaction to the event-source persistence.
      */
     commit(): Promise<void>;
-    /**
-     * Adds a {@link ManipulationListener} that will be notified about any new manipulation within the {@link ManagedEntities.session|session}
-     * @param listener Add
-     */
-    addManipulationListener(listener: ManipulationListener): void;
-    /**
-     * An array of all recoded manipulations of the current transaction (not yet committed).
-     */
-    manipulations: Array<mM.Manipulation>;
     /**
      * Builds a select query from a GMQL select query statement which can then be equipped with variable values and executed.
      * @param statement a GMQL select query statement which may contain variables

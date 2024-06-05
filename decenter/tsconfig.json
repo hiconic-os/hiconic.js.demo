@@ -5,7 +5,7 @@
         "outDir": "src",
         "declaration": true,
         "moduleResolution": "classic",
-        "checkJs": true,
+        "checkJs": false,
         "noImplicitOverride": true,
     },
     "include": ["sources/ts-src/*"]

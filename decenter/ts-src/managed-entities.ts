@@ -3,8 +3,9 @@
 import { eval_, service, session, modelpath, remote, reason, reflection, util, manipulation } from "../tribefire.js.tf-js-api-3.0~/tf-js-api.js";
 import * as mM from "../com.braintribe.gm.manipulation-model-2.0~/ensure-manipulation-model.js";
 import * as rM from "../com.braintribe.gm.root-model-2.0~/ensure-root-model.js";
+import { ManipulationBuffer, ManipulationBufferUpdateListener, SessionManipulationBuffer } from "./manipulation-buffer.js";
 
-export type ManipulationListener = (manipulation: mM.AtomicManipulation) => void
+export { ManipulationBuffer, ManipulationBufferUpdateListener };
 
 /** 
  * Opens a {@link ManagedEntities} instance backed by the indexedDB named "event-source-db".
@@ -25,6 +26,11 @@ export function openEntities(databaseName: string): ManagedEntities {
  * in a serialized form.
  */
 export interface ManagedEntities {
+    /**
+     * An buffer of manipulations that will collect {@link mM.Manipulation manipulations} recorded by the {@link ManagedEntitiesImpl.session session}
+     * for later committing
+     */
+    manipulationBuffer: ManipulationBuffer;
     /**
      * Creates a {@link ManagedEntities.session|session}-associated {@link rM.GenericEntity entity}. 
      * The instantiation will be recorded as {@link mM.InstantiationManipulation InstantiationManipulation}
@@ -50,17 +56,6 @@ export interface ManagedEntities {
     commit(): Promise<void>
 
     /**
-     * Adds a {@link ManipulationListener} that will be notified about any new manipulation within the {@link ManagedEntities.session|session}
-     * @param listener Add
-     */
-    addManipulationListener(listener: ManipulationListener): void
-
-    /**
-     * An array of all recoded manipulations of the current transaction (not yet committed).
-     */
-    manipulations: Array<mM.Manipulation>
-
-    /**
      * Builds a select query from a GMQL select query statement which can then be equipped with variable values and executed.
      * @param statement a GMQL select query statement which may contain variables
      */
@@ -84,13 +79,9 @@ export interface ManagedEntities {
  */
 class ManagedEntitiesImpl implements ManagedEntities {
     readonly session = new session.BasicManagedGmSession()
-    
-    /**
-     * An array of manipulations that will collect {@link mM.Manipulation manipulations} recorded by the {@link ManagedEntitiesImpl.session session}
-     * for later committing
-     */
-    manipulations = new Array<mM.Manipulation>()
 
+    readonly manipulationBuffer: SessionManipulationBuffer;
+    
     /**
      * The actual transaction backend based on {@link indexedDB}
      */
@@ -101,13 +92,10 @@ class ManagedEntitiesImpl implements ManagedEntities {
 
     /** The name of the ObjectStore used to fetch and append transaction */
     databaseName: string
-    loading: boolean = false
-    listeners = new Array<ManipulationListener>()
 
     constructor(databaseName: string) {
-        // add a manipulation listener to the session that will collect recorded manipulations
-        this.session.listeners().add({onMan: m => this.onMan(m)})
         this.databaseName = databaseName
+        this.manipulationBuffer = new SessionManipulationBuffer(this.session);
     }
 
     create<E extends $T.com.braintribe.model.generic.GenericEntity>(type: reflection.EntityType<E>): E {
@@ -115,21 +103,6 @@ class ManagedEntitiesImpl implements ManagedEntities {
         e.globalId = util.newUuid()
         e.id = e.globalId
         return e
-    }
-
-    addManipulationListener(listener: ManipulationListener): void {
-        this.listeners.push(listener)
-    }
-
-    private onMan(manipulation: mM.Manipulation): void {
-        if (this.loading)
-            return
-
-        this.manipulations.push(manipulation);
-
-        for (const m of this.listeners) {
-            m(manipulation)
-        }
     }
 
     delete(entity: rM.GenericEntity): void {
@@ -149,7 +122,8 @@ class ManagedEntitiesImpl implements ManagedEntities {
         let transactions = await (await this.getDatabase()).fetch()
         transactions = this.orderByDependency(transactions)
         
-        this.loading = true
+        this.manipulationBuffer.clear();
+        this.manipulationBuffer.suspendTracking();
         try {
             for (const t of transactions) {
                 const m = await manipulation.ManipulationSerialization.deserializeManipulation(t.diff);
@@ -157,7 +131,7 @@ class ManagedEntitiesImpl implements ManagedEntities {
             }
         }
         finally {
-            this.loading = false
+            this.manipulationBuffer.resumeTracking();
         }
 
         // remember the id of the last transaction for linkage with an new transaction
@@ -166,7 +140,7 @@ class ManagedEntitiesImpl implements ManagedEntities {
     }
 
     async commit(): Promise<void> {
-        const manis = this.manipulations
+        const manis = this.manipulationBuffer.getCommitManipulations();
         // serialize the manipulations (currently as XML)
         const diff = await manipulation.ManipulationSerialization.serializeManipulations(manis, true)
 
@@ -184,8 +158,8 @@ class ManagedEntitiesImpl implements ManagedEntities {
         // append the transaction record to the database
         await (await this.getDatabase()).append(transaction)
 
-        // clear the manipulations as they are peristed
-        this.manipulations = []
+        // clear the manipulations as they are persisted
+        this.manipulationBuffer.clear();
         
         // store the id of the appended transaction as latest transaction id
         this.lastTransactionId = transaction.id

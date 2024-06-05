@@ -1,4 +1,5 @@
 import { reflection } from "../tribefire.js.tf-js-api-3.0~/tf-js-api.js";
+var TypeCode = reflection.TypeCode;
 class ManipulationMarshaller {
     async unmarshall(transactionStrings) {
         const transactions = new Array();
@@ -69,12 +70,81 @@ class ManipulationMarshaller {
         }
     }
     valueAsJson(type, value) {
+        if (value == null)
+            return null;
         switch (type.getTypeCode()) {
-            case reflection.TypeCode.booleanType:
-            case reflection.TypeCode.stringType:
-            case reflection.TypeCode.dateType:
-            case reflection.TypeCode.dateType:
+            case TypeCode.objectType: return this.valueAsJson(type.getActualType(value), value);
+            case TypeCode.booleanType: return value;
+            case TypeCode.stringType: return value;
+            case TypeCode.integerType: return value;
+            case TypeCode.longType: return toLongTuple(value);
+            case TypeCode.floatType: return toFloatTuple(value);
+            case TypeCode.decimalType: return toDecimalTuple(value);
+            case TypeCode.doubleType: return toDoubleTuple(value);
+            case TypeCode.dateType: return toDateTuple(value);
+            case TypeCode.listType: return this.listAsJson(type, value);
+            case TypeCode.setType: return this.setAsJson(type, value);
+            case TypeCode.mapType: return this.mapAsJson(type, value);
+            case TypeCode.entityType: return [value.id];
+            case TypeCode.enumType:
+                return toEnumTuple(type, value);
+                break;
         }
         return null;
     }
+    listAsJson(type, list) {
+        return this.collectionAsJson("L", type, list);
+    }
+    setAsJson(type, set) {
+        return this.collectionAsJson("S", type, set);
+    }
+    mapAsJson(type, map) {
+        const keyType = type.getKeyType();
+        const valueType = type.getValueType();
+        const tuple = ["M"];
+        for (const it = map.entrySet().iterator(); it.hasNext();) {
+            const entry = it.next();
+            const keyJson = this.valueAsJson(keyType, entry.getKey());
+            const valueJson = this.valueAsJson(keyType, entry.getKey());
+            tuple.push(keyJson);
+            tuple.push(valueJson);
+        }
+        return tuple;
+    }
+    collectionAsJson(code, type, list) {
+        const elementType = type.getCollectionElementType();
+        const tuple = [code];
+        for (const it = list.iterator(); it.hasNext();) {
+            const json = this.valueAsJson(elementType, it.next());
+            tuple.push(json);
+        }
+        return tuple;
+    }
+}
+function toFloatTuple(floatValue) {
+    return ["f", floatValue.floatValue()];
+}
+function toDoubleTuple(doubleValue) {
+    return ["d", doubleValue];
+}
+function toDecimalTuple(decimal) {
+    return ["D", decimal.toString()];
+}
+function toLongTuple(longValue) {
+    return ["l", longValue.toString()];
+}
+function toDateTuple(date) {
+    return [
+        "t",
+        date.getUTCFullYear(),
+        date.getUTCMonth(),
+        date.getUTCDay(),
+        date.getUTCHours(),
+        date.getUTCMinutes(),
+        date.getUTCSeconds(),
+        date.getUTCMilliseconds()
+    ];
+}
+function toEnumTuple(type, enumValue) {
+    return ["E", type.getTypeSignature(), enumValue.name()];
 }
