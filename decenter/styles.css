@@ -74,10 +74,11 @@ main {
     padding-bottom: 0.2em;
 }
 
-.button-save {
+.button {
     margin-top: 0.25em;
     margin-right: 2em;
     height: min-content;
+    color: pink;
 }
 
 #button-add-person {

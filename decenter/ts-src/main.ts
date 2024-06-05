@@ -1,18 +1,23 @@
 import * as hc from "../tribefire.js.tf-js-api-3.0~/tf-js-api.js"
-import { ManagedEntities, openEntities } from "./managed-entities.js"
+import { ManagedEntities, ManipulationListener, openEntities } from "./managed-entities.js"
 import * as m from "../hiconic.js.demo.decenter-model-1.0~/ensure-decenter-model.js"
+import * as mM from "../com.braintribe.gm.manipulation-model-2.0~/ensure-manipulation-model.js"
 
 /* ------------- ELEMENTS ------------- */
 const personTable = document.getElementById("tbody-persons") as HTMLTableElement;
 
-const buttonAddPerson = document.getElementById("button-add-person") as HTMLButtonElement;
-const buttonSave = document.getElementById("button-save") as HTMLButtonElement;
 const addPersonForm = document.getElementById("form-add-person") as HTMLFormElement;
 const divAlert = document.getElementById("div-alert") as HTMLDivElement;
+const buttonAddPerson = document.getElementById("button-add-person") as HTMLButtonElement;
+const buttonSave = document.getElementById("button-save") as HTMLButtonElement;
+const buttonUndo = document.getElementById("button-undo") as HTMLButtonElement;
+const buttonRedo = document.getElementById("button-redo") as HTMLButtonElement;
 
 /* ------------- STATIC EVENT LISTENERS ------------- */
 buttonAddPerson.addEventListener("click", addPerson);
 buttonSave.addEventListener("click", save);
+buttonUndo.addEventListener("click", undo);
+buttonRedo.addEventListener("click", redo);
 
 const managedEntities = openEntities("person-index")
 managedEntities.manipulationBuffer.addBufferUpdateListener((b) => buttonSave.style.visibility = b.headCount() > 0? "visible": "hidden");
@@ -107,7 +112,7 @@ function appendTableCell(tr: HTMLTableRowElement, person: m.Person, cellValueTyp
 
     tr.appendChild(cell);
 
-    let inputField = createValueInputField(idPostfix, cellValueType, (person as any)[propertyName])
+    let inputField = createValueInputField(idPostfix, cellValueType, person, propertyName)
     document.getElementById(valueTdId)?.appendChild(inputField)
     
     const editButton = document.getElementById(buttonId) as HTMLButtonElement
@@ -115,12 +120,13 @@ function appendTableCell(tr: HTMLTableRowElement, person: m.Person, cellValueTyp
     
 }
 
-class ValueEditingController {
+class ValueEditingController implements hc.manipulation.ManipulationListener {
     readonly editButton: HTMLButtonElement
     readonly inputField: HTMLInputElement
     readonly person: m.Person
     readonly cellValueType: CellValueType
     readonly propertyName: string
+    skipTracking: boolean
     keyListener = this.onKey.bind(this)
 
     constructor(editButton: HTMLButtonElement, inputField: HTMLInputElement, person: m.Person, cellValueType: CellValueType, propertyName: string) {
@@ -129,7 +135,11 @@ class ValueEditingController {
         this.person = person
         this.cellValueType = cellValueType
         this.propertyName = propertyName
-        this.editButton.onclick = () => this.editValue()
+        this.skipTracking = false
+        this.editButton.onclick = () => this.editValue();
+
+         // Add manipulation listener
+        managedEntities.session.listeners().entityProperty(person, propertyName).add(this);
     }
 
     private onKey(event: KeyboardEvent) {
@@ -148,17 +158,20 @@ class ValueEditingController {
     }
 
     saveValue() : void {
+        this.skipTracking = true;
+try{
         switch (this.cellValueType) {
             case CellValueType.string:
-                (this.person as any)[this.propertyName] = this.inputField.value
+                (this.person as any)[this.propertyName] = this.inputField.value;
                 break;
-                case CellValueType.number:
-                (this.person as any)[this.propertyName] = this.inputField.valueAsNumber
+            case CellValueType.number:
+                (this.person as any)[this.propertyName] = this.inputField.valueAsNumber;
                 break;
-                case CellValueType.date:
-                (this.person as any)[this.propertyName] = hc.time.fromJsDate(this.inputField.valueAsDate as any)
+            case CellValueType.date:
+                (this.person as any)[this.propertyName] = hc.time.fromJsDate(this.inputField.valueAsDate as any);
                 break;
-        }
+            }
+        }finally{ this.skipTracking = false;}
         
         this.inputField.readOnly = true
         this.inputField.removeEventListener("keypress", this.keyListener)
@@ -166,15 +179,23 @@ class ValueEditingController {
         this.editButton.onclick = () => this.editValue()
     }
 
+    onMan(manipulation: mM.Manipulation): void {
+        const newValue = (manipulation as mM.ChangeValueManipulation).newValue;
+        
+        const buttonUndo = document.getElementById("button-undo") as HTMLButtonElement
+        buttonUndo.style.visibility = 'visible'
+    }
+
 }
 
-function createValueInputField(idPostfix: string, cellValueType: CellValueType, value: any) : HTMLInputElement {
+function createValueInputField(idPostfix: string, cellValueType: CellValueType, person: m.Person, propertyName: string) : HTMLInputElement {
     let inputField = document.createElement("input") as HTMLInputElement;
     inputField.id = 'input-value-' + idPostfix;
     inputField.classList.add('form-control');
     inputField.classList.add('input-value');
     inputField.readOnly = true;
-
+    
+    const value = (person as any)[propertyName];
     switch (cellValueType) {
         case CellValueType.string:
             inputField.type = 'text';
@@ -191,6 +212,7 @@ function createValueInputField(idPostfix: string, cellValueType: CellValueType, 
             inputField.valueAsDate = new Date(time as any);
             break;
     }
+
     return inputField;
 }
 
@@ -212,5 +234,13 @@ function showAlert(textContent: string) : void {
     setTimeout(function() {
         divAlert.classList.remove("show");
         }, 3000);
+}
+
+function undo() : void {
+    managedEntities.manipulations[manipulations.length-1].in
+}
+
+function redo() : void {
+
 }
 

@@ -3,13 +3,17 @@ import { openEntities } from "./managed-entities.js";
 import * as m from "../hiconic.js.demo.decenter-model-1.0~/ensure-decenter-model.js";
 /* ------------- ELEMENTS ------------- */
 const personTable = document.getElementById("tbody-persons");
-const buttonAddPerson = document.getElementById("button-add-person");
-const buttonSave = document.getElementById("button-save");
 const addPersonForm = document.getElementById("form-add-person");
 const divAlert = document.getElementById("div-alert");
+const buttonAddPerson = document.getElementById("button-add-person");
+const buttonSave = document.getElementById("button-save");
+const buttonUndo = document.getElementById("button-undo");
+const buttonRedo = document.getElementById("button-redo");
 /* ------------- STATIC EVENT LISTENERS ------------- */
 buttonAddPerson.addEventListener("click", addPerson);
 buttonSave.addEventListener("click", save);
+buttonUndo.addEventListener("click", undo);
+buttonRedo.addEventListener("click", redo);
 const managedEntities = openEntities("person-index");
 managedEntities.manipulationBuffer.addBufferUpdateListener((b) => buttonSave.style.visibility = b.headCount() > 0 ? "visible" : "hidden");
 /* ------------- FUNCTIONS ------------- */
@@ -78,7 +82,7 @@ function appendTableCell(tr, person, cellValueType, propertyName) {
     <div class='div-value' id='${valueTdId}'></div>
     </div>`;
     tr.appendChild(cell);
-    let inputField = createValueInputField(idPostfix, cellValueType, person[propertyName]);
+    let inputField = createValueInputField(idPostfix, cellValueType, person, propertyName);
     document.getElementById(valueTdId)?.appendChild(inputField);
     const editButton = document.getElementById(buttonId);
     new ValueEditingController(editButton, inputField, person, cellValueType, propertyName);
@@ -91,7 +95,10 @@ class ValueEditingController {
         this.person = person;
         this.cellValueType = cellValueType;
         this.propertyName = propertyName;
+        this.skipTracking = false;
         this.editButton.onclick = () => this.editValue();
+        // Add manipulation listener
+        managedEntities.session.listeners().entityProperty(person, propertyName).add(this);
     }
     onKey(event) {
         if (event.key === "Enter") {
@@ -107,29 +114,41 @@ class ValueEditingController {
         this.editButton.onclick = () => this.saveValue();
     }
     saveValue() {
-        switch (this.cellValueType) {
-            case CellValueType.string:
-                this.person[this.propertyName] = this.inputField.value;
-                break;
-            case CellValueType.number:
-                this.person[this.propertyName] = this.inputField.valueAsNumber;
-                break;
-            case CellValueType.date:
-                this.person[this.propertyName] = hc.time.fromJsDate(this.inputField.valueAsDate);
-                break;
+        this.skipTracking = true;
+        try {
+            switch (this.cellValueType) {
+                case CellValueType.string:
+                    this.person[this.propertyName] = this.inputField.value;
+                    break;
+                case CellValueType.number:
+                    this.person[this.propertyName] = this.inputField.valueAsNumber;
+                    break;
+                case CellValueType.date:
+                    this.person[this.propertyName] = hc.time.fromJsDate(this.inputField.valueAsDate);
+                    break;
+            }
+        }
+        finally {
+            this.skipTracking = false;
         }
         this.inputField.readOnly = true;
         this.inputField.removeEventListener("keypress", this.keyListener);
         this.editButton.textContent = '\u270e';
         this.editButton.onclick = () => this.editValue();
     }
+    onMan(manipulation) {
+        const newValue = manipulation.newValue;
+        const buttonUndo = document.getElementById("button-undo");
+        buttonUndo.style.visibility = 'visible';
+    }
 }
-function createValueInputField(idPostfix, cellValueType, value) {
+function createValueInputField(idPostfix, cellValueType, person, propertyName) {
     let inputField = document.createElement("input");
     inputField.id = 'input-value-' + idPostfix;
     inputField.classList.add('form-control');
     inputField.classList.add('input-value');
     inputField.readOnly = true;
+    const value = person[propertyName];
     switch (cellValueType) {
         case CellValueType.string:
             inputField.type = 'text';
@@ -163,4 +182,9 @@ function showAlert(textContent) {
     setTimeout(function () {
         divAlert.classList.remove("show");
     }, 3000);
+}
+function undo() {
+    managedEntities.manipulations[manipulations.length - 1].in;
+}
+function redo() {
 }
