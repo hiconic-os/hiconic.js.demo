@@ -15,8 +15,17 @@ buttonSave.addEventListener("click", save);
 buttonUndo.addEventListener("click", undo);
 buttonRedo.addEventListener("click", redo);
 const managedEntities = openEntities("person-index");
-managedEntities.manipulationBuffer.addBufferUpdateListener((b) => buttonSave.style.visibility = b.headCount() > 0 ? "visible" : "hidden");
+globalThis.managedEnties = managedEntities;
+managedEntities.manipulationBuffer.addBufferUpdateListener(updateOnManBufferChange);
 /* ------------- FUNCTIONS ------------- */
+function updateOnManBufferChange(b) {
+    /*buttonSave.style.visibility = b.headCount() > 0 ? "visible" : "hidden";
+    buttonUndo.style.visibility = b.canUndo() > 0 ? "visible" : "hidden";
+    buttonRedo.style.visibility = b.canRedo() > 0 ? "visible" : "hidden";*/
+    buttonSave.disabled = b.headCount() > 0 ? false : true;
+    buttonUndo.disabled = b.canUndo() > 0 ? false : true;
+    buttonRedo.disabled = b.canRedo() > 0 ? false : true;
+}
 async function main() {
     await managedEntities.load();
     renderTable();
@@ -82,16 +91,14 @@ function appendTableCell(tr, person, cellValueType, propertyName) {
     <div class='div-value' id='${valueTdId}'></div>
     </div>`;
     tr.appendChild(cell);
-    let inputField = createValueInputField(idPostfix, cellValueType, person, propertyName);
-    document.getElementById(valueTdId)?.appendChild(inputField);
     const editButton = document.getElementById(buttonId);
-    new ValueEditingController(editButton, inputField, person, cellValueType, propertyName);
+    const controller = new ValueEditingController(editButton, person, cellValueType, propertyName);
+    document.getElementById(valueTdId)?.appendChild(controller.inputField);
 }
 class ValueEditingController {
-    constructor(editButton, inputField, person, cellValueType, propertyName) {
+    constructor(editButton, person, cellValueType, propertyName) {
         this.keyListener = this.onKey.bind(this);
         this.editButton = editButton;
-        this.inputField = inputField;
         this.person = person;
         this.cellValueType = cellValueType;
         this.propertyName = propertyName;
@@ -99,6 +106,8 @@ class ValueEditingController {
         this.editButton.onclick = () => this.editValue();
         // Add manipulation listener
         managedEntities.session.listeners().entityProperty(person, propertyName).add(this);
+        this.createValueInputField();
+        this.setInputFieldValue();
     }
     onKey(event) {
         if (event.key === "Enter") {
@@ -137,35 +146,38 @@ class ValueEditingController {
         this.editButton.onclick = () => this.editValue();
     }
     onMan(manipulation) {
-        const newValue = manipulation.newValue;
-        const buttonUndo = document.getElementById("button-undo");
-        buttonUndo.style.visibility = 'visible';
+        if (this.skipTracking)
+            return;
+        this.setInputFieldValue();
     }
-}
-function createValueInputField(idPostfix, cellValueType, person, propertyName) {
-    let inputField = document.createElement("input");
-    inputField.id = 'input-value-' + idPostfix;
-    inputField.classList.add('form-control');
-    inputField.classList.add('input-value');
-    inputField.readOnly = true;
-    const value = person[propertyName];
-    switch (cellValueType) {
-        case CellValueType.string:
-            inputField.type = 'text';
-            inputField.value = value;
-            break;
-        case CellValueType.number:
-            inputField.type = 'number';
-            inputField.valueAsNumber = value;
-            break;
-        case CellValueType.date:
-            inputField.type = 'date';
-            const date = value;
-            const time = (date).getTime();
-            inputField.valueAsDate = new Date(time);
-            break;
+    setInputFieldValue() {
+        const value = this.person[this.propertyName];
+        switch (this.cellValueType) {
+            case CellValueType.string:
+                this.inputField.type = 'text';
+                this.inputField.value = value;
+                break;
+            case CellValueType.number:
+                this.inputField.type = 'number';
+                this.inputField.valueAsNumber = value;
+                break;
+            case CellValueType.date:
+                this.inputField.type = 'date';
+                const date = value;
+                const time = (date).getTime();
+                this.inputField.valueAsDate = new Date(time);
+                break;
+        }
     }
-    return inputField;
+    createValueInputField() {
+        let inputField = document.createElement("input");
+        const idPostfix = `${this.propertyName}-${this.person.globalId}`;
+        inputField.id = 'input-value-' + idPostfix;
+        inputField.classList.add('form-control');
+        inputField.classList.add('input-value');
+        inputField.readOnly = true;
+        this.inputField = inputField;
+    }
 }
 async function save() {
     const manCount = managedEntities.manipulationBuffer.headCount();
@@ -184,7 +196,8 @@ function showAlert(textContent) {
     }, 3000);
 }
 function undo() {
-    managedEntities.manipulations[manipulations.length - 1].in;
+    managedEntities.manipulationBuffer.undo();
 }
 function redo() {
+    managedEntities.manipulationBuffer.redo();
 }

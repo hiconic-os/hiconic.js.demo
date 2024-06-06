@@ -78,7 +78,11 @@ main {
     margin-top: 0.25em;
     margin-right: 2em;
     height: min-content;
-    color: pink;
+}
+
+.btn-light.button:enabled {
+    border-style: 1px solid white;
+    background-color: white;
 }
 
 #button-add-person {
