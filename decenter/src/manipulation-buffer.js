@@ -1,7 +1,21 @@
 import { session } from "../tribefire.js.tf-js-api-3.0~/tf-js-api.js";
+import * as mM from "../com.braintribe.gm.manipulation-model-2.0~/ensure-manipulation-model.js";
+class NestedTrackingFrame {
+    constructor() {
+        this.manipulations = new Array();
+    }
+    record(manipulation) {
+        this.manipulations.push(manipulation);
+    }
+    getManipulations() {
+        return this.manipulations;
+    }
+}
 export class SessionManipulationBuffer {
     constructor(session) {
         this.manipulations = new Array();
+        this.outerFrames = new Array();
+        this.currentFrame = this;
         this.listeners = new Array();
         this.suspendTrackingCount = 0;
         this.session = session;
@@ -70,13 +84,48 @@ export class SessionManipulationBuffer {
     onMan(manipulation) {
         if (this.suspendTrackingCount > 0)
             return;
+        this.currentFrame.record(manipulation);
+    }
+    record(manipulation) {
         this.manipulations.length = this.index++;
         this.manipulations.push(manipulation);
         this.notifyListeners();
     }
+    getManipulations() {
+        return this.manipulations.slice(0, this.index);
+    }
     notifyListeners() {
         for (const l of this.listeners) {
             l(this);
+        }
+    }
+    beginCompoundManipulation() {
+        const frame = new NestedTrackingFrame();
+        this.outerFrames.push(this.currentFrame);
+        this.currentFrame = frame;
+    }
+    endCompoundManipulation() {
+        const frame = this.outerFrames.pop();
+        const cM = mM.CompoundManipulation.create();
+        const iCM = mM.CompoundManipulation.create();
+        cM.inverseManipulation = iCM;
+        const manis = cM.compoundManipulationList;
+        const inverseManis = iCM.compoundManipulationList;
+        const endingFrame = this.currentFrame;
+        for (const m of endingFrame.getManipulations()) {
+            manis.add(m);
+            inverseManis.add(m.inverseManipulation);
+        }
+        frame.record(cM);
+        this.currentFrame = frame;
+    }
+    compoundManipulation(manipulator) {
+        this.beginCompoundManipulation();
+        try {
+            return manipulator();
+        }
+        finally {
+            this.endCompoundManipulation();
         }
     }
 }

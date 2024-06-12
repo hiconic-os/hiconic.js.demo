@@ -56,11 +56,13 @@ function addPerson(): void {
     const birthday = new Date(getValueFromInputElement("input-birthday", true));
     const email = getValueFromInputElement("input-email", false);
 
-    const person = managedEntities.create(m.Person);
-    person.name = name;
-    person.lastName = lastName;
-    person.birthday = hc.time.fromJsDate(birthday as any);
-    person.email = email;
+    managedEntities.compoundManipulation(() => {
+        const person = managedEntities.create(m.Person);
+        person.name = name;
+        person.lastName = lastName;
+        person.birthday = hc.time.fromJsDate(birthday as any);
+        person.email = email;
+    })
     
     addPersonForm.reset();
 }
@@ -80,22 +82,23 @@ function getValueFromInputElement(id:string, mandatory:boolean) : string {
 
 function createTableRowForPerson(p: m.Person) : void {
     const tr = document.createElement('tr');
-        personTable.appendChild(tr);
-        
-        appendTableCell(tr, p, CellValueType.string, "name")
-        appendTableCell(tr, p, CellValueType.string, "lastName")
-        appendTableCell(tr, p, CellValueType.date, "birthday")
-        appendTableCell(tr, p, CellValueType.string, "email")
+    personTable.appendChild(tr);
+    
+    appendTableCell(tr, p, CellValueType.string, "name")
+    appendTableCell(tr, p, CellValueType.string, "lastName")
+    appendTableCell(tr, p, CellValueType.date, "birthday")
+    appendTableCell(tr, p, CellValueType.string, "email")
 
-        const cell = document.createElement('td');
-        tr.appendChild(cell);
+    // Button
+    const cell = document.createElement('td');
+    tr.appendChild(cell);
 
-        const delButtonId = 'button-delete-' + p.globalId
-        cell.innerHTML = `<button id ="${delButtonId}" class ="btn btn-light">\u2715</button>`
+    const delButtonId = 'button-delete-' + p.globalId
+    cell.innerHTML = `<button id ="${delButtonId}" class ="btn btn-light">\u2715</button>`
 
-        const deleteButton = document.getElementById(delButtonId) as HTMLButtonElement;
-        
-        new DeleteEntityController(managedEntities, deleteButton, tr, p);
+    const deleteButton = document.getElementById(delButtonId) as HTMLButtonElement;
+    
+    new DeleteEntityController(managedEntities, deleteButton, tr, p);
 }
 
 function appendTableCell(tr: HTMLTableRowElement, person: m.Person, cellValueType: CellValueType, propertyName: string) : void {

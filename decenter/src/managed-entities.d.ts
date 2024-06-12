@@ -37,6 +37,9 @@ export interface ManagedEntities {
      * @param entity the {@link rM.GenericEntity entity} to be deleted
      */
     delete(entity: rM.GenericEntity): void;
+    beginCompoundManipulation(): void;
+    endCompoundManipulation(): void;
+    compoundManipulation<R>(manipulator: () => R): R;
     /**
      * Establishes a state within the {@link ManagedEntities.session|session} by loading and appying changes from the event-source persistence.
      */

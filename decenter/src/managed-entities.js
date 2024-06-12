@@ -27,6 +27,15 @@ class ManagedEntitiesImpl {
     delete(entity) {
         this.session.deleteEntity(entity);
     }
+    beginCompoundManipulation() {
+        this.manipulationBuffer.beginCompoundManipulation();
+    }
+    endCompoundManipulation() {
+        this.manipulationBuffer.endCompoundManipulation();
+    }
+    compoundManipulation(manipulator) {
+        return this.manipulationBuffer.compoundManipulation(manipulator);
+    }
     async selectQuery(statement) {
         return this.session.query().selectString(statement);
     }

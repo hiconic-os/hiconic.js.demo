@@ -29,18 +29,43 @@ export interface ManipulationBuffer {
 
     /** Removes a listener that was previously {@link ManipulationBuffer.addBufferUpdateListener added} */
     removeBufferUpdateListener(listener: ManipulationBufferUpdateListener): void;
+
+    beginCompoundManipulation(): void;
+    
+    endCompoundManipulation(): void;
+    
+    compoundManipulation<R>(manipulator: () => R): R;
 }
 
-export class SessionManipulationBuffer implements ManipulationBuffer {
+interface TrackingFrame {
+    record(manipulation: mM.Manipulation): void
+    getManipulations(): mM.Manipulation[];
+}
+
+class NestedTrackingFrame implements TrackingFrame {
+    private readonly manipulations = new Array<mM.Manipulation>();
+    
+    record(manipulation: mM.Manipulation): void {
+        this.manipulations.push(manipulation);
+    }
+
+    getManipulations(): mM.Manipulation[] {
+        return this.manipulations;
+    }
+}
+
+export class SessionManipulationBuffer implements ManipulationBuffer, TrackingFrame {
     private readonly session: session.ManagedGmSession;
     private readonly manipulations = new Array<mM.Manipulation>();
+    private readonly outerFrames = new Array<TrackingFrame>();
+    private currentFrame: TrackingFrame = this;
     private readonly listeners = new Array<ManipulationBufferUpdateListener>();
     private index: number;
     private suspendTrackingCount = 0;
 
     constructor(session: session.ManagedGmSession) {
         this.session = session;
-        this.session.listeners().add({onMan: m => this.onMan(m)})
+        this.session.listeners().add({onMan: m => this.onMan(m)});
     }
 
     suspendTracking(): void {
@@ -127,9 +152,17 @@ export class SessionManipulationBuffer implements ManipulationBuffer {
         if (this.suspendTrackingCount > 0)
             return
 
+        this.currentFrame.record(manipulation);
+    }
+
+    record(manipulation: mM.Manipulation): void {
         this.manipulations.length = this.index++;
         this.manipulations.push(manipulation);
         this.notifyListeners();
+    }
+
+    getManipulations(): mM.Manipulation[] {
+        return this.manipulations.slice(0, this.index);
     }
 
     private notifyListeners(): void {
@@ -138,4 +171,36 @@ export class SessionManipulationBuffer implements ManipulationBuffer {
         }
     }
 
+    beginCompoundManipulation(): void {
+        const frame = new NestedTrackingFrame();
+        this.outerFrames.push(this.currentFrame);
+        this.currentFrame = frame;
+    }
+    
+    endCompoundManipulation(): void {
+        const frame = this.outerFrames.pop();
+        const cM = mM.CompoundManipulation.create();
+        const iCM = mM.CompoundManipulation.create();
+        cM.inverseManipulation = iCM;
+        const manis = cM.compoundManipulationList;
+        const inverseManis = iCM.compoundManipulationList;
+
+        const endingFrame = this.currentFrame;
+        for (const m of endingFrame.getManipulations()) {
+            manis.add(m);
+            inverseManis.add(m.inverseManipulation);
+        }
+        frame.record(cM);
+        this.currentFrame = frame;
+    }
+    
+    compoundManipulation<R>(manipulator: () => R): R {
+        this.beginCompoundManipulation();
+        try {
+            return manipulator();
+        }   
+        finally {
+            this.endCompoundManipulation();
+        }     
+    }
 } 

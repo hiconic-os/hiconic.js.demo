@@ -43,11 +43,13 @@ function addPerson() {
     const lastName = getValueFromInputElement("input-last-name", true);
     const birthday = new Date(getValueFromInputElement("input-birthday", true));
     const email = getValueFromInputElement("input-email", false);
-    const person = managedEntities.create(m.Person);
-    person.name = name;
-    person.lastName = lastName;
-    person.birthday = hc.time.fromJsDate(birthday);
-    person.email = email;
+    managedEntities.compoundManipulation(() => {
+        const person = managedEntities.create(m.Person);
+        person.name = name;
+        person.lastName = lastName;
+        person.birthday = hc.time.fromJsDate(birthday);
+        person.email = email;
+    });
     addPersonForm.reset();
 }
 function getValueFromInputElement(id, mandatory) {
@@ -66,6 +68,7 @@ function createTableRowForPerson(p) {
     appendTableCell(tr, p, CellValueType.string, "lastName");
     appendTableCell(tr, p, CellValueType.date, "birthday");
     appendTableCell(tr, p, CellValueType.string, "email");
+    // Button
     const cell = document.createElement('td');
     tr.appendChild(cell);
     const delButtonId = 'button-delete-' + p.globalId;

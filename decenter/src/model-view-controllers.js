@@ -9,10 +9,18 @@ export class CreateEntityController {
         this.managedEntities.session.listeners().add(this.entityManipulationListener);
     }
     onEntityMan(manipulation) {
-        if (!(mM.InstantiationManipulation.isInstance(manipulation) || mM.ManifestationManipulation.isInstance(manipulation)))
-            return;
-        const entity = manipulation.entity;
-        if (!this.entityType.isInstance(entity))
+        let entity;
+        if (mM.ManifestationManipulation.isInstance(manipulation)) {
+            entity = manipulation.entity;
+        }
+        else if (mM.ChangeValueManipulation.isInstance(manipulation)) {
+            const m = manipulation;
+            const owner = m.owner;
+            if (owner.propertyName == "globalId") {
+                entity = owner.entity;
+            }
+        }
+        if (entity == null || !this.entityType.isInstance(entity))
             return;
         this.renderer(entity);
     }
@@ -34,7 +42,7 @@ export class DeleteEntityController {
         }
     }
     deleteEntity() {
-        this.managedEntities.session.deleteEntity(this.entity);
+        this.managedEntities.delete(this.entity);
     }
 }
 export var CellValueType;

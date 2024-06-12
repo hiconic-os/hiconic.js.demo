@@ -1,7 +1,7 @@
-import * as m from "../hiconic.js.demo.decenter-model-1.0~/ensure-decenter-model.js"
 import * as mM from "../com.braintribe.gm.manipulation-model-2.0~/ensure-manipulation-model.js"
 import { ManagedEntities } from "./managed-entities.js";
 import { GenericEntity } from "../com.braintribe.gm.root-model-2.0~/ensure-root-model.js";
+import { LocalEntityProperty } from "../com.braintribe.gm.owner-model-2.0~/ensure-owner-model.js";
 import * as hc from "../tribefire.js.tf-js-api-3.0~/tf-js-api.js"
 
 export class CreateEntityController<E extends GenericEntity> {
@@ -18,15 +18,24 @@ export class CreateEntityController<E extends GenericEntity> {
     }
 
     private onEntityMan(manipulation: mM.Manipulation) : void {
-        if (!(mM.InstantiationManipulation.isInstance(manipulation) || mM.ManifestationManipulation.isInstance(manipulation)))
-            return;
+        let entity: GenericEntity;
+        if (mM.ManifestationManipulation.isInstance(manipulation)) {
+            entity = (manipulation as mM.LifecycleManipulation).entity;
+            
+        } else if (mM.ChangeValueManipulation.isInstance(manipulation)) {
+            const m = manipulation as mM.ChangeValueManipulation;
+            const owner = m.owner as LocalEntityProperty;
 
-        const entity = (manipulation as mM.LifecycleManipulation).entity;
-        if (!this.entityType.isInstance(entity))
+            if (owner.propertyName == "globalId") {
+                entity = owner.entity; 
+            }
+            
+        }
+        
+        if (entity == null || !this.entityType.isInstance(entity))
             return;
 
         this.renderer(entity as E);
-        
     }
 }
 
@@ -56,7 +65,7 @@ export class DeleteEntityController {
     }
 
     private deleteEntity() {
-        this.managedEntities.session.deleteEntity(this.entity);
+        this.managedEntities.delete(this.entity);
     }
 }
 

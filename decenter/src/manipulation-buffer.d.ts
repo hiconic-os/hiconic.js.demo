@@ -20,10 +20,19 @@ export interface ManipulationBuffer {
     addBufferUpdateListener(listener: ManipulationBufferUpdateListener): void;
     /** Removes a listener that was previously {@link ManipulationBuffer.addBufferUpdateListener added} */
     removeBufferUpdateListener(listener: ManipulationBufferUpdateListener): void;
+    beginCompoundManipulation(): void;
+    endCompoundManipulation(): void;
+    compoundManipulation<R>(manipulator: () => R): R;
 }
-export declare class SessionManipulationBuffer implements ManipulationBuffer {
+interface TrackingFrame {
+    record(manipulation: mM.Manipulation): void;
+    getManipulations(): mM.Manipulation[];
+}
+export declare class SessionManipulationBuffer implements ManipulationBuffer, TrackingFrame {
     private readonly session;
     private readonly manipulations;
+    private readonly outerFrames;
+    private currentFrame;
     private readonly listeners;
     private index;
     private suspendTrackingCount;
@@ -43,5 +52,11 @@ export declare class SessionManipulationBuffer implements ManipulationBuffer {
     addBufferUpdateListener(listener: ManipulationBufferUpdateListener): void;
     removeBufferUpdateListener(listener: ManipulationBufferUpdateListener): void;
     private onMan;
+    record(manipulation: mM.Manipulation): void;
+    getManipulations(): mM.Manipulation[];
     private notifyListeners;
+    beginCompoundManipulation(): void;
+    endCompoundManipulation(): void;
+    compoundManipulation<R>(manipulator: () => R): R;
 }
+export {};
