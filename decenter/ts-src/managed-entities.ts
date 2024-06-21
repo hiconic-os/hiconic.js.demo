@@ -60,6 +60,12 @@ export interface ManagedEntities {
      */
     delete(entity: rM.GenericEntity): void;
 
+    beginCompoundManipulation(): void;
+    
+    endCompoundManipulation(): void;
+    
+    compoundManipulation<R>(manipulator: () => R): R;
+
     /**
      * Establishes a state within the {@link ManagedEntities.session|session} by loading and appying changes from the event-source persistence.
      */
@@ -137,6 +143,18 @@ class ManagedEntitiesImpl implements ManagedEntities {
 
     delete(entity: rM.GenericEntity): void {
         this.session.deleteEntity(entity)
+    }
+
+    beginCompoundManipulation(): void {
+        this.manipulationBuffer.beginCompoundManipulation();
+    }
+
+    endCompoundManipulation(): void {
+        this.manipulationBuffer.endCompoundManipulation();
+    }
+
+    compoundManipulation<R>(manipulator: () => R): R {
+        return this.manipulationBuffer.compoundManipulation(manipulator);
     }
 
     async selectQuery(statement: string): Promise<session.SelectQueryResultConvenience> {

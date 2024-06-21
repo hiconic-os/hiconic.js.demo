@@ -74,10 +74,15 @@ main {
     padding-bottom: 0.2em;
 }
 
-.button-save {
+.button {
     margin-top: 0.25em;
     margin-right: 2em;
     height: min-content;
+}
+
+.btn-light.button:enabled {
+    border-style: 1px solid white;
+    background-color: white;
 }
 
 #button-add-person {
