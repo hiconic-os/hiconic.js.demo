@@ -1,6 +1,7 @@
 /// <reference path="../tribefire.js.gwt-basic-managed-gm-session-3.0~/gwt-basic-managed-gm-session.d.ts" />
 /// <reference path="../tribefire.js.tribefire-js-module-3.0~/tribefire-js-module.d.ts" />
 import { session, util, manipulation } from "../tribefire.js.tf-js-api-3.0~/tf-js-api.js";
+import * as mM from "../com.braintribe.gm.manipulation-model-2.0~/ensure-manipulation-model.js";
 import { SessionManipulationBuffer } from "./manipulation-buffer.js";
 /**
  * Opens a {@link ManagedEntities} instance backed by the indexedDB named "event-source-db".
@@ -18,11 +19,20 @@ class ManagedEntitiesImpl {
         this.databaseName = databaseName;
         this.manipulationBuffer = new SessionManipulationBuffer(this.session);
     }
-    create(type) {
-        const e = this.session.create(type);
-        e.globalId = util.newUuid();
-        e.id = e.globalId;
-        return e;
+    create(type, properties) {
+        return this.initAndAttach(type.create(), properties);
+    }
+    createRaw(type, properties) {
+        return this.initAndAttach(type.createRaw(), properties);
+    }
+    initAndAttach(entity, properties) {
+        properties || Object.assign(entity, properties);
+        if (!entity.globalId)
+            entity.globalId = util.newUuid();
+        const m = mM.InstantiationManipulation.create();
+        m.entity = entity;
+        this.session.manipulate().mode(session.ManipulationMode.LOCAL).apply(m);
+        return entity;
     }
     delete(entity) {
         this.session.deleteEntity(entity);

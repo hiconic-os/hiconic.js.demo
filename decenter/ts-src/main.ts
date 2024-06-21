@@ -26,33 +26,46 @@ async function main(): Promise<void> {
 main()
 
 function addPerson(): void {
-    const name = getValueFromInputElement("input-name", true);
-    const lastName = getValueFromInputElement("input-last-name", true);
-    const birthday = new Date(getValueFromInputElement("input-birthday", true));
-    const email = getValueFromInputElement("input-email", false);
+    const name: string = getValueFromInputElement("input-name", true);
+    const lastName: string = getValueFromInputElement("input-last-name", true);
+    const birthday: Date = getValueFromInputElement("input-birthday", true);
+    const email: string = getValueFromInputElement("input-email", false);
 
     const person = managedEntities.create(m.Person);
-    person.name = name
-    person.lastName = lastName
-    person.birthday = hc.time.fromJsDate(birthday as any)
-    person.email = email
+    person.name = name;
+    person.lastName = lastName;
+    person.birthday = birthday;
+    person.email = email;
     
     renderTable();
     
     addPersonForm.reset();
 }
 
-function getValueFromInputElement(id:string, mandatory:boolean) : string {
+function getValueFromInputElement<V extends string|number|date>(id:string, mandatory:boolean) : V {
     const element = document.getElementById(id) as HTMLInputElement
 
-    const value = element.value
+    let value: string | number | date;
+
+    switch (element.type) {
+        case "text":
+            value = element.value;
+            break;
+        case "number":
+            value = element.valueAsNumber;
+            break;
+        case "date":
+            value = element.valueAsDate;
+            break;
+    }
+
     if (value)
-        return value;
+        return value as V;
     
     if (mandatory)
         showAlert("Input for " + element.name + " is mandatory.")
 
-    return "";
+    return null;
 }
 
 async function renderTable() : Promise<void> {
@@ -156,7 +169,7 @@ class ValueEditingController {
                 (this.person as any)[this.propertyName] = this.inputField.valueAsNumber
                 break;
                 case CellValueType.date:
-                (this.person as any)[this.propertyName] = hc.time.fromJsDate(this.inputField.valueAsDate as any)
+                (this.person as any)[this.propertyName] = this.inputField.valueAsDate
                 break;
         }
         

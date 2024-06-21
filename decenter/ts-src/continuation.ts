@@ -1,100 +1,114 @@
+import { lang } from "../tribefire.js.tf-js-api-3.0~/tf-js-api.js";
 
+export type DeferredFunction = (this: Continuation, ...args: any[]) => void;
+export type ContinuationConsumer<E, C> = (this: Continuation, el: E, context: C) => void;
 
-
-export type AsyncContinuation<R> = (context: ContinuationContext) => Promise<R>;
-export type Continuation<R> = () => R;
-
-
-export interface ContinuationContext {
-    continue<R>(continuation: Continuation<R>): Promise<R>
-    continueAsync<R>(continuation: AsyncContinuation<R>): Promise<R>
-}
-
-
-class ContinuationContextImpl implements ContinuationContext {
+export abstract class Continuation {
     readonly asyncThreshold = 20;
 
-    lastTask: ContinuationQueueNode = new ContinuationQueueNode();
-    nextTask: ContinuationTask;
+    private lastNode: ContinuationQueueNode = new ContinuationQueueNode();
+    private nextNode: ContinuationTaskNode<any, any>;
+    
+    private readonly messageChannel = new MessageChannel();
 
-    readonly messageChannel = new MessageChannel();
+    private resolve: () => void;
+    private reject: (e: any) => void;
+    
+    private promise: Promise<void>;
 
     constructor() {
         this.messageChannel.port1.onmessage = () => this.work();
+        this.initPromise();
     }
 
-    continue<R>(continuation: Continuation<R>): Promise<R> {
-        return new Promise<R>((resolve, reject) => {
-            queueMicrotask(() => {
-                try {
-                    resolve(continuation());
-                }
-                catch (e) {
-                    reject(e);
-                }
-            });
-        });
-        
-    }
-
-    continueAsync<R>(continuation: AsyncContinuation<R>): Promise<R> {
-        return new Promise<R>((resolve, reject) => {
-            queueMicrotask(() => {
-                try {
-                    continuation(this).then(resolve).catch(reject);
-                }
-                catch (e) {
-                    reject(e);
-                }
-            });
+    private initPromise() {
+        this.promise = new Promise<void>((resolve, reject) => {
+            this.resolve = resolve;
+            this.reject = reject;
         });
     }
 
-    private enqueue(task: ContinuationTask): void {
-        this.lastTask.next = task;
+    protected async wait(): Promise<void> {
+        await this.promise;
+        this.initPromise();
+    }
 
-        if (this.nextTask == null) {
-            this.nextTask = task;
-            this.schedule();            
+    protected forEachOf<E>(iterable: Iterable<E>, consumer: (e: E) => void): void {
+        this.enqueue(new ContinuationTaskNode(iterable[Symbol.iterator](), consumer));
+    }
+
+    protected forEachOfIterator<E>(iterator: Iterator<E>, consumer: (e: E) => void): void {
+        this.enqueue(new ContinuationTaskNode(iterator, consumer));
+    }
+
+    protected forEachOfIterable<E>(iterable: lang.Iterable<E>, consumer: (e: E) => void): void {
+        this.forEachOf(iterable.iterable(), consumer);
+    }
+
+    private enqueue(task: ContinuationTaskNode<any, any>): void {
+        this.lastNode.next = task;
+        this.lastNode = task;
+
+        if (this.nextNode == null) {
+            this.nextNode = task;
+            this.schedule();
         }
     }
 
     private schedule(): void {
-        setTimeout(() => this.work(), 0);
+        this.messageChannel.port2.postMessage(null);
     }
 
     private work(): void {
-        let startTime = Date.now();
+        try {
+            let startTime = Date.now();
 
-        let task = this.nextTask;
-        const threshold = this.asyncThreshold;
+            let node = this.nextNode;
+            const threshold = this.asyncThreshold;
 
-        while (task != null) {
-            task.execute();
-            task = this.nextTask = task.next;
+            while (node != null) {
+                const {it, consumer} = node;
 
-            const curTime = Date.now();
+                while (true) {
+                    const res = it.next();
 
-            if ((curTime - startTime) > threshold) {
-                if (task != null) 
-                    this.schedule();
-                break;
+                    if (res.done)
+                        break;
+
+                    consumer(res.value);
+
+                    const curTime = Date.now();
+
+                    if ((curTime - startTime) > threshold) {
+                        this.schedule();
+                        return;
+                    }
+                }
+
+                node = this.nextNode = node.next;
             }
+
+            // the whole process has ended
+            this.resolve();
+        }
+        catch (e) {
+            this.reject(e);
         }
     }
 }
 
 class ContinuationQueueNode {
-    next: ContinuationTask;
+    next: ContinuationTaskNode<any, any>;
 }
 
-class ContinuationTask {
-    continuation: Continuation<any>;
-    promise: Promise<any>;
-    next: ContinuationTask;
-
-    execute(): void {
-
+class ContinuationTaskNode<E, C> extends ContinuationQueueNode {
+    readonly it: Iterator<E>;
+    readonly consumer: (e: E) => void;
+    
+    constructor(it: Iterator<E>, consumer: (e: E) => void) {
+        super();
+        this.it = it;
+        this.consumer = consumer;
     }
 }
 

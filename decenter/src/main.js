@@ -1,4 +1,3 @@
-import * as hc from "../tribefire.js.tf-js-api-3.0~/tf-js-api.js";
 import { openEntities } from "./managed-entities.js";
 import * as m from "../hiconic.js.demo.decenter-model-1.0~/ensure-decenter-model.js";
 /* ------------- ELEMENTS ------------- */
@@ -21,24 +20,35 @@ main();
 function addPerson() {
     const name = getValueFromInputElement("input-name", true);
     const lastName = getValueFromInputElement("input-last-name", true);
-    const birthday = new Date(getValueFromInputElement("input-birthday", true));
+    const birthday = getValueFromInputElement("input-birthday", true);
     const email = getValueFromInputElement("input-email", false);
     const person = managedEntities.create(m.Person);
     person.name = name;
     person.lastName = lastName;
-    person.birthday = hc.time.fromJsDate(birthday);
+    person.birthday = birthday;
     person.email = email;
     renderTable();
     addPersonForm.reset();
 }
 function getValueFromInputElement(id, mandatory) {
     const element = document.getElementById(id);
-    const value = element.value;
+    let value;
+    switch (element.type) {
+        case "text":
+            value = element.value;
+            break;
+        case "number":
+            value = element.valueAsNumber;
+            break;
+        case "date":
+            value = element.valueAsDate;
+            break;
+    }
     if (value)
         return value;
     if (mandatory)
         showAlert("Input for " + element.name + " is mandatory.");
-    return "";
+    return null;
 }
 async function renderTable() {
     personTable.innerHTML = '';
@@ -115,7 +125,7 @@ class ValueEditingController {
                 this.person[this.propertyName] = this.inputField.valueAsNumber;
                 break;
             case CellValueType.date:
-                this.person[this.propertyName] = hc.time.fromJsDate(this.inputField.valueAsDate);
+                this.person[this.propertyName] = this.inputField.valueAsDate;
                 break;
         }
         this.inputField.readOnly = true;

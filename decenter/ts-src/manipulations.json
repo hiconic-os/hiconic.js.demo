@@ -47,13 +47,29 @@
     ["S","value", "value"], // set
     ["M","key", "value", "key", "value"], // map
     
-    ["5"], // entity
-    ["E","typesig","constant"], // enum 
+    ["E","5"], // entity
+    ["e","typesig","constant"], // enum 
     
+    [">","5","foo.bar.Person"],
+    ["@","5",{"name":"Peter","lastName":"Gazdik"}],
+    ["@","5",{"friends":["L",["E","5"]]}],
+    ["@","5",{"friend":["E","6"]}],
+    ["@","5",{"markers":["e","typesig","constant"]}],
+    ["@","5","~",["friends"]], // alt 2
+    ["@","5","-",{"friends":["L",["E","6"]]}], // alt 2
+    ["@","5","+",{"friends":["L",["E","6"]], "otherList": "hallo"  },"-", {"p1"}], // alt 2
+    ["<","5"],
+    ["*", ....],
+
     
-    ["~","5",{"name":"Peter","lastName":"Gazdik"}],
-    ["~","5",{"friends":["L",["5"]]}],
-    ["~","5",{"friend":["5"]}],
-    ["~","5",{"markers":["E","typesig","constant"]}]
-    
+    // +,-,=,^,#,~,!,*,$,&,,/,|,<,>,:,@
+    // instantiate: >
+    // delete: <
+    // with-entity: @
+    // change value: =
+    // add-to-collection: +
+    // remove-from-collection: -
+    // clear: ~
+    // compound: *
+
     ]

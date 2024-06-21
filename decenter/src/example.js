@@ -1,19 +1,9 @@
-function foobar(callback) {
-    callback.callbackMethod("Hello World");
+import { Resource } from "../com.braintribe.gm.resource-model-2.0~/ensure-resource-model.js";
+function create(type, initializer) {
+    const entity = type.create();
+    initializer || Object.assign(entity, initializer);
+    return entity;
 }
-function barfoo(callback) {
-    callback("Hello World");
-}
-// first bloated version
-class SpecificCallback {
-    callbackMethod(text) {
-        console.log(text);
-    }
-}
-const c = new SpecificCallback();
-foobar(c);
-// second less bloated version
-foobar({ callbackMethod: s => console.log(s) });
-// third least bloated version
-barfoo(s => console.log(s));
-document.getElementById("egal").addEventListener("onlick", e => console.log(e));
+create(Resource, {
+    name: "resource"
+});

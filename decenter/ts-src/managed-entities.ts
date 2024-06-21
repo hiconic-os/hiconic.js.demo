@@ -4,6 +4,7 @@ import { eval_, service, session, modelpath, remote, reason, reflection, util, m
 import * as mM from "../com.braintribe.gm.manipulation-model-2.0~/ensure-manipulation-model.js";
 import * as rM from "../com.braintribe.gm.root-model-2.0~/ensure-root-model.js";
 import { ManipulationBuffer, ManipulationBufferUpdateListener, SessionManipulationBuffer } from "./manipulation-buffer.js";
+import { PersistentEntityReference, GlobalEntityReference } from "../com.braintribe.gm.value-descriptor-model-2.0~/ensure-value-descriptor-model.js";
 
 export { ManipulationBuffer, ManipulationBufferUpdateListener };
 
@@ -14,6 +15,10 @@ export { ManipulationBuffer, ManipulationBufferUpdateListener };
 export function openEntities(databaseName: string): ManagedEntities {
     return new ManagedEntitiesImpl(databaseName)
 }
+
+export type PartialProperties<T> = Partial<
+  Pick<T, { [K in keyof T]: T[K] extends Function ? never : K }[keyof T]>
+>;
 
 /**
  * Manages entities given by instances {@link rM.GenericEntity GenericEntity} within an in-memory OODB and 
@@ -31,47 +36,57 @@ export interface ManagedEntities {
      * for later committing
      */
     manipulationBuffer: ManipulationBuffer;
+    
     /**
-     * Creates a {@link ManagedEntities.session|session}-associated {@link rM.GenericEntity entity}. 
+     * Creates a {@link ManagedEntities.session|session}-associated {@link rM.GenericEntity entity} with a globalId initialized to a random UUID.
+     * The default initializers of the entity will be applied.
      * The instantiation will be recorded as {@link mM.InstantiationManipulation InstantiationManipulation}
      * @param type the {@link reflection.EntityType entity type} of the entity to be created
      */
-    create<E extends rM.GenericEntity>(type: reflection.EntityType<E>): E
+    create<E extends rM.GenericEntity>(type: reflection.EntityType<E>, properties?: PartialProperties<E>): E;
+
+    /**
+     * Creates a {@link ManagedEntities.session|session}-associated {@link rM.GenericEntity entity} with a globalId initialized to a random UUID.
+     * The default initializers of the entity will not be applied.
+     * The instantiation will be recorded as {@link mM.InstantiationManipulation InstantiationManipulation}
+     * @param type the {@link reflection.EntityType entity type} of the entity to be created
+     */
+    createRaw<E extends rM.GenericEntity>(type: reflection.EntityType<E>, properties?: PartialProperties<E>): E;
 
     /**
      * Deletes an {@link rM.GenericEntity entity} from the {@link ManagedEntities.session|session}.
      * The deletion will be recorded as {@link mM.DeleteManipulation DeleteManipulation}
      * @param entity the {@link rM.GenericEntity entity} to be deleted
      */
-    delete(entity: rM.GenericEntity): void
+    delete(entity: rM.GenericEntity): void;
 
     /**
      * Establishes a state within the {@link ManagedEntities.session|session} by loading and appying changes from the event-source persistence.
      */
-    load(): Promise<void>
+    load(): Promise<void>;
 
     /**
      * Persists the recorded and collected {@link mM.Manipulation manipulations} by appending them as a transaction to the event-source persistence.
      */
-    commit(): Promise<void>
+    commit(): Promise<void>;
 
     /**
      * Builds a select query from a GMQL select query statement which can then be equipped with variable values and executed.
      * @param statement a GMQL select query statement which may contain variables
      */
-    selectQuery(statement: string): Promise<session.SelectQueryResultConvenience>
+    selectQuery(statement: string): Promise<session.SelectQueryResultConvenience>;
 
     /**
      * Builds an entity query from a GMQL entity query statement which can then be equipped with variable values and executed.
      * @param statement a GMQL entity query statement which may contain variables
      */
-    entityQuery(statement: string): Promise<session.EntityQueryResultConvenience>
+    entityQuery(statement: string): Promise<session.EntityQueryResultConvenience>;
 
     /**
      * The in-memory OODB that keeps all the managed {@link rM.GenericEntity entities}, records changes on them as {@link mM.Manipulation manipulations} 
      * and makes the entities and their properties accessible by queries.
      */
-    session: session.ManagedGmSession
+    session: session.ManagedGmSession;
 }
 
 /**
@@ -98,11 +113,26 @@ class ManagedEntitiesImpl implements ManagedEntities {
         this.manipulationBuffer = new SessionManipulationBuffer(this.session);
     }
 
-    create<E extends $T.com.braintribe.model.generic.GenericEntity>(type: reflection.EntityType<E>): E {
-        const e = this.session.create(type);
-        e.globalId = util.newUuid()
-        e.id = e.globalId
-        return e
+    create<E extends rM.GenericEntity>(type: reflection.EntityType<E>, properties?: PartialProperties<E>): E {
+        return this.initAndAttach(type.create(), properties);
+    }
+
+    createRaw<E extends rM.GenericEntity>(type: reflection.EntityType<E>, properties?: PartialProperties<E>): E {
+        return this.initAndAttach(type.createRaw(), properties);
+    }
+
+    private initAndAttach<E extends rM.GenericEntity>(entity: E, properties?: PartialProperties<E>): E {
+        properties || Object.assign(entity, properties);
+
+        if (!entity.globalId)
+            entity.globalId = util.newUuid();
+
+        const m = mM.InstantiationManipulation.create();
+        m.entity = entity;
+
+        this.session.manipulate().mode(session.ManipulationMode.LOCAL).apply(m);
+
+        return entity;
     }
 
     delete(entity: rM.GenericEntity): void {

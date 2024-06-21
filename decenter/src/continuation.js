@@ -1,64 +1,75 @@
-class ContinuationContextImpl {
+export class Continuation {
     constructor() {
         this.asyncThreshold = 20;
-        this.lastTask = new ContinuationQueueNode();
+        this.lastNode = new ContinuationQueueNode();
         this.messageChannel = new MessageChannel();
         this.messageChannel.port1.onmessage = () => this.work();
+        this.initPromise();
     }
-    continue(continuation) {
-        return new Promise((resolve, reject) => {
-            queueMicrotask(() => {
-                try {
-                    resolve(continuation());
-                }
-                catch (e) {
-                    reject(e);
-                }
-            });
+    initPromise() {
+        this.promise = new Promise((resolve, reject) => {
+            this.resolve = resolve;
+            this.reject = reject;
         });
     }
-    continueAsync(continuation) {
-        return new Promise((resolve, reject) => {
-            queueMicrotask(() => {
-                try {
-                    continuation(this).then(resolve).catch(reject);
-                }
-                catch (e) {
-                    reject(e);
-                }
-            });
-        });
+    async wait() {
+        await this.promise;
+        this.initPromise();
+    }
+    forEachOf(iterable, consumer) {
+        this.enqueue(new ContinuationTaskNode(iterable[Symbol.iterator](), consumer));
+    }
+    forEachOfIterator(iterator, consumer) {
+        this.enqueue(new ContinuationTaskNode(iterator, consumer));
+    }
+    forEachOfIterable(iterable, consumer) {
+        this.forEachOf(iterable.iterable(), consumer);
     }
     enqueue(task) {
-        this.lastTask.next = task;
-        if (this.nextTask == null) {
-            this.nextTask = task;
+        this.lastNode.next = task;
+        this.lastNode = task;
+        if (this.nextNode == null) {
+            this.nextNode = task;
             this.schedule();
         }
     }
     schedule() {
-        setTimeout(() => this.work(), 0);
+        this.messageChannel.port2.postMessage(null);
     }
     work() {
-        let startTime = Date.now();
-        let task = this.nextTask;
-        const threshold = this.asyncThreshold;
-        while (task != null) {
-            task.execute();
-            task = this.nextTask = task.next;
-            const curTime = Date.now();
-            if ((curTime - startTime) > threshold) {
-                if (task != null)
-                    this.schedule();
-                break;
+        try {
+            let startTime = Date.now();
+            let node = this.nextNode;
+            const threshold = this.asyncThreshold;
+            while (node != null) {
+                const { it, consumer } = node;
+                while (true) {
+                    const res = it.next();
+                    if (res.done)
+                        break;
+                    consumer(res.value);
+                    const curTime = Date.now();
+                    if ((curTime - startTime) > threshold) {
+                        this.schedule();
+                        return;
+                    }
+                }
+                node = this.nextNode = node.next;
             }
+            // the whole process has ended
+            this.resolve();
+        }
+        catch (e) {
+            this.reject(e);
         }
     }
 }
 class ContinuationQueueNode {
 }
-class ContinuationTask {
-    execute() {
+class ContinuationTaskNode extends ContinuationQueueNode {
+    constructor(it, consumer) {
+        super();
+        this.it = it;
+        this.consumer = consumer;
     }
 }
-export {};

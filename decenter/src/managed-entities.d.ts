@@ -9,6 +9,9 @@ export { ManipulationBuffer, ManipulationBufferUpdateListener };
  * @param databaseName name of the ObjectStore used as space for the stored events
  */
 export declare function openEntities(databaseName: string): ManagedEntities;
+export type PartialProperties<T> = Partial<Pick<T, {
+    [K in keyof T]: T[K] extends Function ? never : K;
+}[keyof T]>>;
 /**
  * Manages entities given by instances {@link rM.GenericEntity GenericEntity} within an in-memory OODB and
  * stores changes in a event-sourcing persistence (e.g. indexedDB, Supabase, SQL blobs).
@@ -26,11 +29,19 @@ export interface ManagedEntities {
      */
     manipulationBuffer: ManipulationBuffer;
     /**
-     * Creates a {@link ManagedEntities.session|session}-associated {@link rM.GenericEntity entity}.
+     * Creates a {@link ManagedEntities.session|session}-associated {@link rM.GenericEntity entity} with a globalId initialized to a random UUID.
+     * The default initializers of the entity will be applied.
      * The instantiation will be recorded as {@link mM.InstantiationManipulation InstantiationManipulation}
      * @param type the {@link reflection.EntityType entity type} of the entity to be created
      */
-    create<E extends rM.GenericEntity>(type: reflection.EntityType<E>): E;
+    create<E extends rM.GenericEntity>(type: reflection.EntityType<E>, properties?: PartialProperties<E>): E;
+    /**
+     * Creates a {@link ManagedEntities.session|session}-associated {@link rM.GenericEntity entity} with a globalId initialized to a random UUID.
+     * The default initializers of the entity will not be applied.
+     * The instantiation will be recorded as {@link mM.InstantiationManipulation InstantiationManipulation}
+     * @param type the {@link reflection.EntityType entity type} of the entity to be created
+     */
+    createRaw<E extends rM.GenericEntity>(type: reflection.EntityType<E>, properties?: PartialProperties<E>): E;
     /**
      * Deletes an {@link rM.GenericEntity entity} from the {@link ManagedEntities.session|session}.
      * The deletion will be recorded as {@link mM.DeleteManipulation DeleteManipulation}
