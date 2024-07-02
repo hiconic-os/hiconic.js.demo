@@ -1,6 +1,6 @@
 import { session } from "../tribefire.js.tf-js-api-3.0~/tf-js-api.js";
 import * as mM from "../com.braintribe.gm.manipulation-model-2.0~/ensure-manipulation-model.js";
-export type ManipulationBufferUpdateListener = (buffer: ManipulationBuffer) => void;
+export declare type ManipulationBufferUpdateListener = (buffer: ManipulationBuffer) => void;
 export interface ManipulationBuffer {
     /** True if there is at least one manipulation that can be undone */
     canUndo(): boolean;

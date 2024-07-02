@@ -6,7 +6,7 @@
         "declaration": true,
         "moduleResolution": "classic",
         "checkJs": false,
-        "noImplicitOverride": true,
+        //"noImplicitOverride": true,
     },
     "include": ["sources/ts-src/*"]
 }

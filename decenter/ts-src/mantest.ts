@@ -11,12 +11,7 @@ import * as marshaling from "./manipulation-marshaler.js";
 import { GenericEntity } from "../com.braintribe.gm.root-model-2.0~/ensure-root-model.js";
 
 function create<E extends GenericEntity>(session: hc.session.ManagedGmSession, type: hc.reflection.EntityType<E>): E {
-    const m = InstantiationManipulation.create();
-    const e = type.create();
-    e.globalId = hc.util.newUuid();
-    m.entity = e;
-    session.manipulate().mode(hc.session.ManipulationMode.LOCAL).apply(m);
-    return e;
+    return session.createEntity(type).globalWithRandomUuid();
 }
 
 async function main() {
@@ -26,14 +21,14 @@ async function main() {
 
     session.listeners().add({ onMan: m => manipulations.push(m) });
 
-    const person = create(session, Person);
+    // const person = create(session, Person);
 
-    person.name = "Christina";
-    person.lastName = "Wilpernig";
-    person.birthday = new Date(Date.UTC(1990, 9, 10));
-    person.email = "chistina.wilpernig@gmail.com";
+    // person.name = "Christina";
+    // person.lastName = "Wilpernig";
+    // person.birthday = new Date(Date.UTC(1990, 9, 10));
+    // person.email = "chistina.wilpernig@gmail.com";
 
-    // const jack1 = createJack1(session);
+    const jack1 = createJack1(session);
 
     const marshaler = new marshaling.ManipulationMarshaller();
 
@@ -65,16 +60,14 @@ function createJack1(session: hc.session.BasicManagedGmSession): JackOfAllTraits
     // list
     jack.stringList.push(...["one", "two", "three"]);
 
-    // const myMap: map<string, string> = hc.reflection.EssentialTypes.MAP.createPlain();
+    jack.longMap.set("one", 1n);
+    jack.longMap.set("two", 1n);
 
-    // let myMap: map<string, string>; // Map<string, string>, T.Map<string, string>
+    const m = new T.Map<string, JackOfAllTraits>();
 
-    // const mapish = new T.Mapish<string, long>();
-    // mapish.set("one", BigInt(1));
+    m.set("self", jack);
 
-    // jack.longMap = mapish;
-    // const m = jack.longMap;
-    // console.log(m.size);
+    jack.entityMap = m;
 
     return jack;
 }

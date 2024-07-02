@@ -194,7 +194,7 @@ class ManipulationToJson extends Continuation {
             case TypeCode.setType:
                 const setType = type;
                 // TODO: ask Peter about naming of our collections in general
-                const set = new T.Setish();
+                const set = new T.Set();
                 itemsToAddOrRemove.forEach(e => set.add(e));
                 items = this.setToJson(setType, set);
                 break;
@@ -338,7 +338,7 @@ class JsonToManipulation extends Continuation {
             t(json, tc) { tc?.(reflection.EssentialTypes.DATE); return new Date(Date.UTC.apply(null, json.slice[1])); },
             L: (json, tc) => {
                 tc?.(reflection.EssentialTypes.LIST);
-                const list = new T.Arrayish();
+                const list = new T.Array();
                 const it = json[Symbol.iterator]();
                 // eat up type-code so that only elements remain
                 it.next();
@@ -348,7 +348,7 @@ class JsonToManipulation extends Continuation {
             // decode Set
             S(json, tc) {
                 tc?.(reflection.EssentialTypes.SET);
-                const set = new T.Setish();
+                const set = new T.Set();
                 const it = json[Symbol.iterator]();
                 // eat up type-code so that only elements remain
                 it.next();
@@ -358,7 +358,7 @@ class JsonToManipulation extends Continuation {
             // decode Map
             M(json, tc) {
                 tc?.(reflection.EssentialTypes.MAP);
-                const map = new T.Mapish();
+                const map = new T.Map();
                 const it = json[Symbol.iterator]();
                 // eat up type-code so that only elements remain
                 it.next();
@@ -436,13 +436,13 @@ class JsonToManipulation extends Continuation {
             case TypeCode.setType:
             case TypeCode.listType: {
                 const c = value;
-                const m = new T.Mapish();
+                const m = new T.Map();
                 for (const e of c.iterable())
                     m.set(e, e);
                 return m;
             }
             default: {
-                const m = new T.Mapish();
+                const m = new T.Map();
                 m.set(value, value);
                 return m;
             }

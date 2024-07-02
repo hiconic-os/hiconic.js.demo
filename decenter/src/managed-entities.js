@@ -20,13 +20,16 @@ class ManagedEntitiesImpl {
         this.manipulationBuffer = new SessionManipulationBuffer(this.session);
     }
     create(type, properties) {
-        return this.initAndAttach(type.create(), properties);
+        const e = this.session.createEntity(type).globalWithRandomUuid();
+        properties || Object.assign(e, properties);
+        return e;
     }
     createRaw(type, properties) {
-        return this.initAndAttach(type.createRaw(), properties);
+        const e = this.session.createEntity(type).raw().globalWithRandomUuid();
+        properties || Object.assign(e, properties);
+        return e;
     }
     initAndAttach(entity, properties) {
-        properties || Object.assign(entity, properties);
         if (!entity.globalId)
             entity.globalId = util.newUuid();
         const m = mM.InstantiationManipulation.create();

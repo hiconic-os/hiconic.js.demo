@@ -223,7 +223,7 @@ class ManipulationToJson extends Continuation {
             case TypeCode.setType:
                 const setType = type as reflection.SetType;
                 // TODO: ask Peter about naming of our collections in general
-                const set = new T.Setish();
+                const set = new T.Set();
                 itemsToAddOrRemove.forEach(e => set.add(e));
                 items = this.setToJson(setType, set);
                 break;
@@ -432,13 +432,13 @@ class JsonToManipulation extends Continuation {
             case TypeCode.setType:
             case TypeCode.listType: {
                 const c: lang.Collection<any> = value;
-                const m = new T.Mapish();
+                const m = new T.Map();
                 for (const e of c.iterable())
                     m.set(e,e);
                 return m;
             }
             default: {
-                const m = new T.Mapish();
+                const m = new T.Map();
                 m.set(value, value);
                 return m;
             }
@@ -513,7 +513,7 @@ class JsonToManipulation extends Continuation {
 
         L: (json, tc): list<any> => {
             tc?.(reflection.EssentialTypes.LIST);
-            const list = new T.Arrayish();
+            const list = new T.Array();
             const it = json[Symbol.iterator]();
 
             // eat up type-code so that only elements remain
@@ -527,7 +527,7 @@ class JsonToManipulation extends Continuation {
         // decode Set
         S(json, tc): set<any> {
             tc?.(reflection.EssentialTypes.SET);
-            const set = new T.Setish();
+            const set = new T.Set();
             const it = json[Symbol.iterator]();
             
             // eat up type-code so that only elements remain
@@ -541,7 +541,7 @@ class JsonToManipulation extends Continuation {
         // decode Map
         M(json, tc): map<any,any> {
             tc?.(reflection.EssentialTypes.MAP);
-            const map = new T.Mapish();
+            const map = new T.Map();
             const it = json[Symbol.iterator]();
             
             // eat up type-code so that only elements remain

@@ -120,15 +120,19 @@ class ManagedEntitiesImpl implements ManagedEntities {
     }
 
     create<E extends rM.GenericEntity>(type: reflection.EntityType<E>, properties?: PartialProperties<E>): E {
-        return this.initAndAttach(type.create(), properties);
+        const e = this.session.createEntity(type).globalWithRandomUuid();
+        properties || Object.assign(e, properties);
+        return e;
     }
 
     createRaw<E extends rM.GenericEntity>(type: reflection.EntityType<E>, properties?: PartialProperties<E>): E {
-        return this.initAndAttach(type.createRaw(), properties);
+        const e = this.session.createEntity(type).raw().globalWithRandomUuid();
+        properties || Object.assign(e, properties);
+        return e;
     }
 
     private initAndAttach<E extends rM.GenericEntity>(entity: E, properties?: PartialProperties<E>): E {
-        properties || Object.assign(entity, properties);
+        
 
         if (!entity.globalId)
             entity.globalId = util.newUuid();
