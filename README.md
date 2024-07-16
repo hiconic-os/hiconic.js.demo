@@ -1,6 +1,7 @@
 # Run the demo
 
 - Move to project `decenter`
+- If needed, install http-server: `npm install -g http-server`
 - Run `npm start`
 - Open browser on `localhost:8080`
 
