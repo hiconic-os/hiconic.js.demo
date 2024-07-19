@@ -22,14 +22,10 @@ export class CreateEntityController<E extends GenericEntity> {
         if (mM.ManifestationManipulation.isInstance(manipulation)) {
             entity = (manipulation as mM.LifecycleManipulation).entity;
             
-        } else if (mM.ChangeValueManipulation.isInstance(manipulation)) {
-            const m = manipulation as mM.ChangeValueManipulation;
-            const owner = m.owner as LocalEntityProperty;
+        } else if (mM.InstantiationManipulation.isInstance(manipulation)) {
+            const m = manipulation as mM.InstantiationManipulation;
 
-            if (owner.propertyName == "globalId") {
-                entity = owner.entity; 
-            }
-            
+            entity = m.entity;
         }
         
         if (entity == null || !this.entityType.isInstance(entity))

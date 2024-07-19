@@ -216,7 +216,7 @@ class ManipulationToJson extends Continuation {
             
             case TypeCode.listType:
                 const listType = type as reflection.ListType;
-                const listMapType = reflection.typeReflection().getMapType(reflection.EssentialTypes.INTEGER, listType.getCollectionElementType());
+                const listMapType = reflection.typeReflection().getMapType(reflection.INTEGER, listType.getCollectionElementType());
                 items = this.mapToJson(listMapType, itemsToAddOrRemove);
                 break;
 
@@ -353,7 +353,7 @@ class JsonToManipulation extends Continuation {
 
     private jsonToValue(json: any, typeConsumer?: (type: reflection.GenericModelType) => void): any {
         if (json == null) {
-            typeConsumer?.(reflection.EssentialTypes.TYPE_OBJECT);
+            typeConsumer?.(reflection.OBJECT);
             return null;
         }
 
@@ -494,9 +494,9 @@ class JsonToManipulation extends Continuation {
     }
 
     private valueExperts: Experts<(json: any, typeConsumer?: (type: reflection.GenericModelType) => void) => any> = {
-        string(json, tc): string { tc?.(reflection.EssentialTypes.STRING); return json; },
-        boolean(json, tc): boolean { tc?.(reflection.EssentialTypes.BOOLEAN); return json; },
-        number(json, tc): number { tc?.(reflection.EssentialTypes.INTEGER); return json; },
+        string(json, tc): string { tc?.(reflection.STRING); return json; },
+        boolean(json, tc): boolean { tc?.(reflection.BOOLEAN); return json; },
+        number(json, tc): number { tc?.(reflection.INTEGER); return json; },
         object: (json, tc): any => {
             const op: string = json[0];
             return this.exValueExperts[op](json, tc);
@@ -505,14 +505,14 @@ class JsonToManipulation extends Continuation {
 
     private exValueExperts: Experts<(json: any[], typeConsumer?: (type: reflection.GenericModelType) => void) => any> = {
         // base types: f = float, d = double, l = long,
-        f(json, tc): float { tc?.(reflection.EssentialTypes.FLOAT); return new T.Float((json as FloatTuple)[1]); },
-        d(json, tc): double { tc?.(reflection.EssentialTypes.DOUBLE); return new T.Double((json as DoubleTuple)[1]); },
-        l(json, tc): long { tc?.(reflection.EssentialTypes.LONG); return BigInt((json as LongTuple)[1]); },
-        D(json, tc): decimal { tc?.(reflection.EssentialTypes.DECIMAL); return math.bigDecimalFromString((json as DecimalTuple)[1]); },
-        t(json, tc): date { tc?.(reflection.EssentialTypes.DATE); return new Date(Date.UTC.apply(null, json.slice[1])); },
+        f(json, tc): float { tc?.(reflection.FLOAT); return new T.Float((json as FloatTuple)[1]); },
+        d(json, tc): double { tc?.(reflection.DOUBLE); return new T.Double((json as DoubleTuple)[1]); },
+        l(json, tc): long { tc?.(reflection.LONG); return BigInt((json as LongTuple)[1]); },
+        D(json, tc): decimal { tc?.(reflection.DECIMAL); return math.bigDecimalFromString((json as DecimalTuple)[1]); },
+        t(json, tc): date { tc?.(reflection.DATE); return new Date(Date.UTC.apply(null, json.slice[1])); },
 
         L: (json, tc): list<any> => {
-            tc?.(reflection.EssentialTypes.LIST);
+            tc?.(reflection.LIST);
             const list = new T.Array();
             const it = json[Symbol.iterator]();
 
@@ -526,7 +526,7 @@ class JsonToManipulation extends Continuation {
 
         // decode Set
         S(json, tc): set<any> {
-            tc?.(reflection.EssentialTypes.SET);
+            tc?.(reflection.SET);
             const set = new T.Set();
             const it = json[Symbol.iterator]();
             
@@ -540,7 +540,7 @@ class JsonToManipulation extends Continuation {
 
         // decode Map
         M(json, tc): map<any,any> {
-            tc?.(reflection.EssentialTypes.MAP);
+            tc?.(reflection.MAP);
             const map = new T.Map();
             const it = json[Symbol.iterator]();
             

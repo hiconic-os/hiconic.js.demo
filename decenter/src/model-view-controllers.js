@@ -12,12 +12,9 @@ export class CreateEntityController {
         if (mM.ManifestationManipulation.isInstance(manipulation)) {
             entity = manipulation.entity;
         }
-        else if (mM.ChangeValueManipulation.isInstance(manipulation)) {
+        else if (mM.InstantiationManipulation.isInstance(manipulation)) {
             const m = manipulation;
-            const owner = m.owner;
-            if (owner.propertyName == "globalId") {
-                entity = owner.entity;
-            }
+            entity = m.entity;
         }
         if (entity == null || !this.entityType.isInstance(entity))
             return;

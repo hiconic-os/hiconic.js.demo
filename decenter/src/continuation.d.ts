@@ -1,6 +1,6 @@
 import { lang } from "../tribefire.js.tf-js-api-3.0~/tf-js-api.js";
-export declare type DeferredFunction = (this: Continuation, ...args: any[]) => void;
-export declare type ContinuationConsumer<E, C> = (this: Continuation, el: E, context: C) => void;
+export type DeferredFunction = (this: Continuation, ...args: any[]) => void;
+export type ContinuationConsumer<E, C> = (this: Continuation, el: E, context: C) => void;
 export declare abstract class Continuation {
     readonly asyncThreshold = 20;
     private lastNode;

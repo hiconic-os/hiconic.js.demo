@@ -9,7 +9,7 @@ export { ManipulationBuffer, ManipulationBufferUpdateListener };
  * @param databaseName name of the ObjectStore used as space for the stored events
  */
 export declare function openEntities(databaseName: string): ManagedEntities;
-export declare type PartialProperties<T> = Partial<Pick<T, {
+export type PartialProperties<T> = Partial<Pick<T, {
     [K in keyof T]: T[K] extends Function ? never : K;
 }[keyof T]>>;
 /**

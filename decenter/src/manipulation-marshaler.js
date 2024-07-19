@@ -188,7 +188,7 @@ class ManipulationToJson extends Continuation {
                 break;
             case TypeCode.listType:
                 const listType = type;
-                const listMapType = reflection.typeReflection().getMapType(reflection.EssentialTypes.INTEGER, listType.getCollectionElementType());
+                const listMapType = reflection.typeReflection().getMapType(reflection.INTEGER, listType.getCollectionElementType());
                 items = this.mapToJson(listMapType, itemsToAddOrRemove);
                 break;
             case TypeCode.setType:
@@ -321,9 +321,9 @@ class JsonToManipulation extends Continuation {
             },
         };
         this.valueExperts = {
-            string(json, tc) { tc?.(reflection.EssentialTypes.STRING); return json; },
-            boolean(json, tc) { tc?.(reflection.EssentialTypes.BOOLEAN); return json; },
-            number(json, tc) { tc?.(reflection.EssentialTypes.INTEGER); return json; },
+            string(json, tc) { tc?.(reflection.STRING); return json; },
+            boolean(json, tc) { tc?.(reflection.BOOLEAN); return json; },
+            number(json, tc) { tc?.(reflection.INTEGER); return json; },
             object: (json, tc) => {
                 const op = json[0];
                 return this.exValueExperts[op](json, tc);
@@ -331,13 +331,13 @@ class JsonToManipulation extends Continuation {
         };
         this.exValueExperts = {
             // base types: f = float, d = double, l = long,
-            f(json, tc) { tc?.(reflection.EssentialTypes.FLOAT); return new T.Float(json[1]); },
-            d(json, tc) { tc?.(reflection.EssentialTypes.DOUBLE); return new T.Double(json[1]); },
-            l(json, tc) { tc?.(reflection.EssentialTypes.LONG); return BigInt(json[1]); },
-            D(json, tc) { tc?.(reflection.EssentialTypes.DECIMAL); return math.bigDecimalFromString(json[1]); },
-            t(json, tc) { tc?.(reflection.EssentialTypes.DATE); return new Date(Date.UTC.apply(null, json.slice[1])); },
+            f(json, tc) { tc?.(reflection.FLOAT); return new T.Float(json[1]); },
+            d(json, tc) { tc?.(reflection.DOUBLE); return new T.Double(json[1]); },
+            l(json, tc) { tc?.(reflection.LONG); return BigInt(json[1]); },
+            D(json, tc) { tc?.(reflection.DECIMAL); return math.bigDecimalFromString(json[1]); },
+            t(json, tc) { tc?.(reflection.DATE); return new Date(Date.UTC.apply(null, json.slice[1])); },
             L: (json, tc) => {
-                tc?.(reflection.EssentialTypes.LIST);
+                tc?.(reflection.LIST);
                 const list = new T.Array();
                 const it = json[Symbol.iterator]();
                 // eat up type-code so that only elements remain
@@ -347,7 +347,7 @@ class JsonToManipulation extends Continuation {
             },
             // decode Set
             S(json, tc) {
-                tc?.(reflection.EssentialTypes.SET);
+                tc?.(reflection.SET);
                 const set = new T.Set();
                 const it = json[Symbol.iterator]();
                 // eat up type-code so that only elements remain
@@ -357,7 +357,7 @@ class JsonToManipulation extends Continuation {
             },
             // decode Map
             M(json, tc) {
-                tc?.(reflection.EssentialTypes.MAP);
+                tc?.(reflection.MAP);
                 const map = new T.Map();
                 const it = json[Symbol.iterator]();
                 // eat up type-code so that only elements remain
@@ -406,7 +406,7 @@ class JsonToManipulation extends Continuation {
     }
     jsonToValue(json, typeConsumer) {
         if (json == null) {
-            typeConsumer?.(reflection.EssentialTypes.TYPE_OBJECT);
+            typeConsumer?.(reflection.OBJECT);
             return null;
         }
         return this.valueExperts[typeof json](json);
