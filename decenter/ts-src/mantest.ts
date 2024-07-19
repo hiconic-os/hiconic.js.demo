@@ -7,7 +7,7 @@ import { Manipulation, CompoundManipulation,
     PropertyManipulation, ChangeValueManipulation, 
     AddManipulation, RemoveManipulation, 
     ClearCollectionManipulation } from "../com.braintribe.gm.manipulation-model-2.0~/ensure-manipulation-model.js";
-import * as marshaling from "./manipulation-marshaler.js";
+import * as marshaling from "./manipulation-marshaller.js";
 import { GenericEntity } from "../com.braintribe.gm.root-model-2.0~/ensure-root-model.js";
 
 function create<E extends GenericEntity>(session: hc.session.ManagedGmSession, type: hc.reflection.EntityType<E>): E {

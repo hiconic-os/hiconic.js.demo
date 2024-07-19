@@ -1,7 +1,7 @@
 import * as hc from "../tribefire.js.tf-js-api-3.0~/tf-js-api.js";
 import { T, math } from "../tribefire.js.tf-js-api-3.0~/tf-js-api.js";
 import { JackOfAllTraits } from "../hiconic.js.demo.decenter-model-1.0~/ensure-decenter-model.js";
-import * as marshaling from "./manipulation-marshaler.js";
+import * as marshaling from "./manipulation-marshaller.js";
 function create(session, type) {
     return session.createEntity(type).globalWithRandomUuid();
 }
