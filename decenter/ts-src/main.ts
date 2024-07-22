@@ -31,7 +31,11 @@ function updateOnManBufferChange(b: ManipulationBuffer) {
 }
 
 async function main(): Promise<void> {
-    await managedEntities.load()
+    try {
+        await managedEntities.load()
+    } catch (e) {
+        console.log(e);
+    }
     renderTable()
 
     new CreateEntityController<m.Person>(managedEntities, m.Person, createTableRowForPerson);

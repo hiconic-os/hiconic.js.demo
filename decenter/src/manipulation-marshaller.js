@@ -1,10 +1,11 @@
 import { reflection, math, T } from "../tribefire.js.tf-js-api-3.0~/tf-js-api.js";
-import { CompoundManipulation, InstantiationManipulation, DeleteManipulation, ChangeValueManipulation, AddManipulation, RemoveManipulation, ClearCollectionManipulation, ManifestationManipulation } from "../com.braintribe.gm.manipulation-model-2.0~/ensure-manipulation-model.js";
+import { CompoundManipulation, InstantiationManipulation, DeleteManipulation, DeleteMode, ChangeValueManipulation, AddManipulation, RemoveManipulation, ClearCollectionManipulation, ManifestationManipulation } from "../com.braintribe.gm.manipulation-model-2.0~/ensure-manipulation-model.js";
 import * as vM from "../com.braintribe.gm.value-descriptor-model-2.0~/ensure-value-descriptor-model.js";
 import * as oM from "../com.braintribe.gm.owner-model-2.0~/ensure-owner-model.js";
 import * as rM from "../com.braintribe.gm.root-model-2.0~/ensure-root-model.js";
 import { Continuation } from "./continuation.js";
 var TypeCode = reflection.TypeCode;
+const deleteModes = DeleteMode.dropReferences.type().getEnumValues();
 export class ManipulationMarshaller {
     constructor() {
         this.merges = new Array();
@@ -162,7 +163,7 @@ class ManipulationToJson extends Continuation {
         return [">", e.globalId, e.EntityType().getTypeSignature()];
     }
     deleteToJson(m) {
-        return ["<", m.entity.globalId];
+        return ["<", m.entity.globalId, m.deleteMode.ordinal()];
     }
     changeValueToJson(m) {
         const [id, property, type] = this.owner(m);
@@ -256,18 +257,26 @@ class JsonToManipulation extends Continuation {
                 const m = CompoundManipulation.create();
                 const manipulations = m.compoundManipulationList;
                 const adder = manipulations.push.bind(manipulations);
-                this.forEachOf(json, j => this.jsonToManipulations(j, adder));
+                let object = { "*": function () { } };
+                const it = json[Symbol.iterator]();
+                // skip the first element in the array which is the "*" operation, 
+                // everything else in the array will be a manipulation
+                it.next();
+                this.forEachOfIterator(it, j => this.jsonToManipulations(j, adder));
+                consumer(m);
             },
             [">"]: (json, consumer) => {
                 const tuple = json;
                 const m = InstantiationManipulation.create();
-                m.entity = this.entity(tuple[2], tuple[1]);
+                m.entity = this.entity(tuple[1], tuple[2]);
                 consumer(m);
             },
             ["<"]: (json, consumer) => {
                 const tuple = json;
                 const m = DeleteManipulation.create();
                 m.entity = this.entity(tuple[1]);
+                const dmOrdinal = tuple[2];
+                m.deleteMode = deleteModes[dmOrdinal];
                 consumer(m);
             },
             ["@"]: (json, consumer) => {
@@ -335,7 +344,7 @@ class JsonToManipulation extends Continuation {
             d(json, tc) { tc?.(reflection.DOUBLE); return new T.Double(json[1]); },
             l(json, tc) { tc?.(reflection.LONG); return BigInt(json[1]); },
             D(json, tc) { tc?.(reflection.DECIMAL); return math.bigDecimalFromString(json[1]); },
-            t(json, tc) { tc?.(reflection.DATE); return new Date(Date.UTC.apply(null, json.slice[1])); },
+            t(json, tc) { tc?.(reflection.DATE); return new Date(Date.UTC.apply(null, json.slice(1))); },
             L: (json, tc) => {
                 tc?.(reflection.LIST);
                 const list = new T.Array();

@@ -5,6 +5,7 @@ import * as mM from "../com.braintribe.gm.manipulation-model-2.0~/ensure-manipul
 import * as rM from "../com.braintribe.gm.root-model-2.0~/ensure-root-model.js";
 import { ManipulationBuffer, ManipulationBufferUpdateListener, SessionManipulationBuffer } from "./manipulation-buffer.js";
 import { PersistentEntityReference, GlobalEntityReference } from "../com.braintribe.gm.value-descriptor-model-2.0~/ensure-value-descriptor-model.js";
+import * as marshalling from "./manipulation-marshaller.js";
 
 export { ManipulationBuffer, ManipulationBufferUpdateListener };
 
@@ -102,6 +103,7 @@ class ManagedEntitiesImpl implements ManagedEntities {
     readonly session = new session.BasicManagedGmSession()
 
     readonly manipulationBuffer: SessionManipulationBuffer;
+    readonly marshaller = new marshalling.ManipulationMarshaller();
     
     /**
      * The actual transaction backend based on {@link indexedDB}
@@ -178,8 +180,11 @@ class ManagedEntitiesImpl implements ManagedEntities {
         this.manipulationBuffer.suspendTracking();
         try {
             for (const t of transactions) {
-                const m = await manipulation.ManipulationSerialization.deserializeManipulation(t.diff);
-                this.session.manipulate().mode(session.ManipulationMode.REMOTE).apply(m)
+                const manis = await this.marshaller.unmarshalFromString(t.diff);
+                const cm = mM.CompoundManipulation.create();
+                cm.compoundManipulationList.push(...manis);
+
+                this.session.manipulate().mode(session.ManipulationMode.REMOTE_GLOBAL).apply(cm);
             }
         }
         finally {
@@ -193,8 +198,8 @@ class ManagedEntitiesImpl implements ManagedEntities {
 
     async commit(): Promise<void> {
         const manis = this.manipulationBuffer.getCommitManipulations();
-        // serialize the manipulations (currently as XML)
-        const diff = await manipulation.ManipulationSerialization.serializeManipulations(manis, true)
+
+        const diff = await this.marshaller.marshalToString(manis);
 
         // build a transaction record equipped with a new UUID, date and the serialized manipulations
         const transaction = {} as Transaction

@@ -24,7 +24,12 @@ function updateOnManBufferChange(b) {
     buttonRedo.disabled = b.canRedo() ? false : true;
 }
 async function main() {
-    await managedEntities.load();
+    try {
+        await managedEntities.load();
+    }
+    catch (e) {
+        console.log(e);
+    }
     renderTable();
     new CreateEntityController(managedEntities, m.Person, createTableRowForPerson);
 }

@@ -1,8 +1,9 @@
 /// <reference path="../tribefire.js.gwt-basic-managed-gm-session-3.0~/gwt-basic-managed-gm-session.d.ts" />
 /// <reference path="../tribefire.js.tribefire-js-module-3.0~/tribefire-js-module.d.ts" />
-import { session, util, manipulation } from "../tribefire.js.tf-js-api-3.0~/tf-js-api.js";
+import { session, util } from "../tribefire.js.tf-js-api-3.0~/tf-js-api.js";
 import * as mM from "../com.braintribe.gm.manipulation-model-2.0~/ensure-manipulation-model.js";
 import { SessionManipulationBuffer } from "./manipulation-buffer.js";
+import * as marshalling from "./manipulation-marshaller.js";
 /**
  * Opens a {@link ManagedEntities} instance backed by the indexedDB named "event-source-db".
  * @param databaseName name of the ObjectStore used as space for the stored events
@@ -16,6 +17,7 @@ export function openEntities(databaseName) {
 class ManagedEntitiesImpl {
     constructor(databaseName) {
         this.session = new session.BasicManagedGmSession();
+        this.marshaller = new marshalling.ManipulationMarshaller();
         this.databaseName = databaseName;
         this.manipulationBuffer = new SessionManipulationBuffer(this.session);
     }
@@ -63,8 +65,10 @@ class ManagedEntitiesImpl {
         this.manipulationBuffer.suspendTracking();
         try {
             for (const t of transactions) {
-                const m = await manipulation.ManipulationSerialization.deserializeManipulation(t.diff);
-                this.session.manipulate().mode(session.ManipulationMode.REMOTE).apply(m);
+                const manis = await this.marshaller.unmarshalFromString(t.diff);
+                const cm = mM.CompoundManipulation.create();
+                cm.compoundManipulationList.push(...manis);
+                this.session.manipulate().mode(session.ManipulationMode.REMOTE_GLOBAL).apply(cm);
             }
         }
         finally {
@@ -76,8 +80,7 @@ class ManagedEntitiesImpl {
     }
     async commit() {
         const manis = this.manipulationBuffer.getCommitManipulations();
-        // serialize the manipulations (currently as XML)
-        const diff = await manipulation.ManipulationSerialization.serializeManipulations(manis, true);
+        const diff = await this.marshaller.marshalToString(manis);
         // build a transaction record equipped with a new UUID, date and the serialized manipulations
         const transaction = {};
         transaction.id = util.newUuid();
