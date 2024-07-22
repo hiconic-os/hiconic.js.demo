@@ -1,11 +1,12 @@
 import { eval_, service, session, modelpath, remote, reason, reflection, util, lang, time, math, T } from "../tribefire.js.tf-js-api-3.0~/tf-js-api.js";
-import { Manipulation, CompoundManipulation, InstantiationManipulation, DeleteManipulation, PropertyManipulation, ChangeValueManipulation, AddManipulation, RemoveManipulation, ClearCollectionManipulation, ManifestationManipulation, LifecycleManipulation } from "../com.braintribe.gm.manipulation-model-2.0~/ensure-manipulation-model.js";
+import { Manipulation, CompoundManipulation, InstantiationManipulation, DeleteManipulation, DeleteMode, PropertyManipulation, ChangeValueManipulation, AddManipulation, RemoveManipulation, ClearCollectionManipulation, ManifestationManipulation, LifecycleManipulation } from "../com.braintribe.gm.manipulation-model-2.0~/ensure-manipulation-model.js";
 import * as vM from "../com.braintribe.gm.value-descriptor-model-2.0~/ensure-value-descriptor-model.js";
 import * as oM from "../com.braintribe.gm.owner-model-2.0~/ensure-owner-model.js";
 import * as rM from "../com.braintribe.gm.root-model-2.0~/ensure-root-model.js";
 import { Continuation } from "./continuation.js"
 
-import TypeCode = reflection.TypeCode
+import TypeCode = reflection.TypeCode;
+const deleteModes = DeleteMode.dropReferences.type().getEnumValues() as DeleteMode[];
 
 export class ManipulationMarshaller {
 
@@ -182,7 +183,7 @@ class ManipulationToJson extends Continuation {
     }
 
     private deleteToJson(m: DeleteManipulation): DeleteTuple {
-        return ["<", m.entity.globalId];
+        return ["<", m.entity.globalId, m.deleteMode.ordinal()];
     }
 
     private changeValueToJson(m: ChangeValueManipulation): ChangeValueTuple {
@@ -387,13 +388,21 @@ class JsonToManipulation extends Continuation {
             const m = CompoundManipulation.create();
             const manipulations = m.compoundManipulationList;
             const adder = manipulations.push.bind(manipulations);
-            this.forEachOf(json, j => this.jsonToManipulations(j, adder));
+
+            let object = { "*": function () { } };
+
+            const it = json[Symbol.iterator]();
+            // skip the first element in the array which is the "*" operation, 
+            // everything else in the array will be a manipulation
+            it.next();
+            this.forEachOfIterator(it, j => this.jsonToManipulations(j, adder));
+            consumer(m);
         },
 
         [">"]: (json: any[], consumer: (m: InstantiationManipulation) => void): void => {
             const tuple = json as InstantiationTuple;
             const m = InstantiationManipulation.create();
-            m.entity = this.entity(tuple[2], tuple[1]);
+            m.entity = this.entity(tuple[1], tuple[2]);
             consumer(m);
         },
 
@@ -401,6 +410,9 @@ class JsonToManipulation extends Continuation {
             const tuple = json as DeleteTuple;
             const m = DeleteManipulation.create();
             m.entity = this.entity(tuple[1]);
+            const dmOrdinal = tuple[2];
+            m.deleteMode = deleteModes[dmOrdinal];
+
             consumer(m);
         },
 
@@ -509,7 +521,7 @@ class JsonToManipulation extends Continuation {
         d(json, tc): double { tc?.(reflection.DOUBLE); return new T.Double((json as DoubleTuple)[1]); },
         l(json, tc): long { tc?.(reflection.LONG); return BigInt((json as LongTuple)[1]); },
         D(json, tc): decimal { tc?.(reflection.DECIMAL); return math.bigDecimalFromString((json as DecimalTuple)[1]); },
-        t(json, tc): date { tc?.(reflection.DATE); return new Date(Date.UTC.apply(null, json.slice[1])); },
+        t(json, tc): date { tc?.(reflection.DATE); return new Date(Date.UTC.apply(null, json.slice(1))); },
 
         L: (json, tc): list<any> => {
             tc?.(reflection.LIST);
@@ -618,7 +630,7 @@ class PropertyOperationsIterator implements Iterator<[string, object]>, Iterable
 
 type ManipulationTuple = [man: string, ...args: any];
 type InstantiationTuple = [man: string, id: string, type: string];
-type DeleteTuple = [man: string, id: string];
+type DeleteTuple = [man: string, id: string, mode: number];
 type CompoundTuple = [man: string, ...manipulations: ManipulationTuple];
 type ChangeValueTuple = [man: string, id: string, ...changes: any];
 type PropertyRelatedTuple = [man: string, id: string, ...changes: object[]];
